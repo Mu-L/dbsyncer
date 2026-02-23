@@ -23,12 +23,10 @@ public class CryptoUtilTest {
 
     private static final Logger logger = LoggerFactory.getLogger(CryptoUtilTest.class);
 
-    private Map<String, Object> testData;
-
     @Before
     public void setUp() {
         // 生成RSA密钥对
-        testData = new HashMap<>();
+        Map<String, Object> testData = new HashMap<>();
         testData.put("name", "测试数据");
         testData.put("value", 12345);
         testData.put("timestamp", System.currentTimeMillis());

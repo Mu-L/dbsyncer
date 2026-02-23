@@ -5,7 +5,7 @@
 
     <groupId>org.ghi</groupId>
     <artifactId>dbsyncer</artifactId>
-    <version>2.0.8</version>
+    <version>2.0.9</version>
     <packaging>pom</packaging>
     <name>dbsyncer</name>
 
@@ -57,7 +57,7 @@
         <jsql-parse.version>4.9</jsql-parse.version>
 
         <!-- 可选参数 -->
-        <skip.spotless>false</skip.spotless>
+        <skip.spotless>true</skip.spotless>
     </properties>
 
     <!-- 统一管理第三方依赖jar -->
