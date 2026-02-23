@@ -4,6 +4,8 @@
 package org.dbsyncer.biz.impl;
 
 import org.dbsyncer.biz.DataSyncService;
+import org.dbsyncer.biz.model.DataSyncEvent;
+import org.dbsyncer.biz.model.DataSyncRequest;
 import org.dbsyncer.biz.vo.BinlogColumnVO;
 import org.dbsyncer.biz.vo.MessageVO;
 import org.dbsyncer.common.model.Paging;
@@ -14,6 +16,7 @@ import org.dbsyncer.common.util.NumberUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.flush.impl.BufferActuatorRouter;
+import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.Meta;
 import org.dbsyncer.parser.model.Picker;
 import org.dbsyncer.parser.model.TableGroup;
@@ -192,6 +195,26 @@ public class DataSyncServiceImpl implements DataSyncService {
         meta.setUpdateTime(Instant.now().toEpochMilli());
         profileComponent.editConfigModel(meta);
         return messageId;
+    }
+
+    @Override
+    public void syncBatch(DataSyncRequest request) {
+        Mapping mapping = profileComponent.getMapping(request.getMappingId());
+        Assert.notNull(mapping, "Mapping can not be null.");
+        TableGroup tableGroup = profileComponent.getTableGroup(request.getTableGroupId());
+        Assert.notNull(tableGroup, "Meta can not be null.");
+        Meta meta = profileComponent.getMeta(mapping.getMetaId());
+        Assert.notNull(meta, "Meta can not be null.");
+        List<DataSyncEvent> dataList = request.getDataList();
+        Assert.notEmpty(dataList, "DataList can not be null.");
+
+        for (DataSyncEvent changedData : dataList) {
+            String sourceTableName = tableGroup.getSourceTable().getName();
+            RowChangedEvent changedEvent = new RowChangedEvent(sourceTableName, changedData.getEvent(), changedData.getData(), null, null);
+
+            // 执行同步是否成功
+            bufferActuatorRouter.execute(meta.getId(), changedEvent);
+        }
     }
 
     private Map getData(String metaId, String messageId) {

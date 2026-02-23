@@ -4,12 +4,13 @@
 package org.dbsyncer.web.controller.index;
 
 import org.dbsyncer.biz.ConnectorService;
+import org.dbsyncer.biz.DataSyncService;
 import org.dbsyncer.biz.MappingService;
-import org.dbsyncer.biz.TableGroupService;
+import org.dbsyncer.biz.model.DataSyncRequest;
 import org.dbsyncer.biz.vo.RestResult;
+import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.sdk.enums.DataTypeEnum;
 import org.dbsyncer.web.controller.BaseController;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
@@ -23,7 +24,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -43,7 +43,7 @@ public class MappingController extends BaseController {
     private MappingService mappingService;
 
     @Resource
-    private TableGroupService tableGroupService;
+    private DataSyncService dataSyncService;
 
     /**
      * 同步任务列表页面
@@ -200,6 +200,21 @@ public class MappingController extends BaseController {
         try {
             Map<String, String> params = getParams(request);
             return RestResult.restSuccess(mappingService.removeCustomTable(params));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping("/sync")
+    @ResponseBody
+    public RestResult sync(HttpServletRequest request) {
+        try {
+            String requestBody = readRequestBody(request);
+            logger.info("接收同步数据：{}", requestBody);
+            DataSyncRequest syncRequest = JsonUtil.jsonToObj(requestBody, DataSyncRequest.class);
+            dataSyncService.syncBatch(syncRequest);
+            return RestResult.restSuccess(null);
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

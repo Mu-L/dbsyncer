@@ -37,7 +37,7 @@ public final class DecryptRequestWrapper extends HttpServletRequestWrapper {
     private final String decryptedData;
 
     /** 缓存的请求体 */
-    private byte[] cachedBody;
+    private final byte[] cachedBody;
 
     /**
      * 构造函数

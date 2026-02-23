@@ -7,13 +7,16 @@ import com.alibaba.fastjson2.JSON;
 import org.dbsyncer.biz.SystemConfigService;
 import org.dbsyncer.biz.impl.ApiKeyManager;
 import org.dbsyncer.biz.impl.JwtSecretManager;
-import org.dbsyncer.common.rsa.RsaManager;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.model.OpenApiData;
 import org.dbsyncer.common.model.RsaConfig;
+import org.dbsyncer.common.rsa.RsaManager;
+import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.NumberUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.model.SystemConfig;
+import org.dbsyncer.web.controller.BaseController;
 import org.dbsyncer.web.model.OpenApiResponse;
 import org.dbsyncer.web.security.TimestampValidator;
 import org.slf4j.Logger;
@@ -21,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.util.Assert;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,12 +47,17 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 /**
  * OpenAPI控制器
@@ -59,7 +68,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @RestController
 @RequestMapping("/openapi")
-public class OpenApiController implements InitializingBean {
+public class OpenApiController extends BaseController implements InitializingBean {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -219,29 +228,6 @@ public class OpenApiController implements InitializingBean {
     }
 
     /**
-     * 同步接口
-     * POST /openapi/data/sync
-     *
-     * @param request 请求对象
-     * @return 同步结果
-     */
-    @PostMapping("/data/sync")
-    public OpenApiResponse<Object> sync(HttpServletRequest request) {
-        try {
-//            String requestBody = readRequestBody(request);
-//            boolean publicNetwork = isPublicNetwork(request);
-//            RsaConfig rsaConfig = systemConfigService.getSystemConfig().getRsaConfig();
-//            String decryptedData = rsaManager.decryptData(rsaConfig, requestBody, publicNetwork);
-            // TODO 实现具体逻辑
-            logger.info("同步数据：{}", true);
-            return OpenApiResponse.success("同步数据", "success");
-        } catch (Exception e) {
-            logger.error("同步失败", e);
-            return OpenApiResponse.fail(OpenApiErrorCode.INTERNAL_ERROR, "同步失败: " + e.getMessage());
-        }
-    }
-
-    /**
      * 登录接口 - 获取Token
      * POST /openapi/auth/login
      *
@@ -335,20 +321,6 @@ public class OpenApiController implements InitializingBean {
         }
         String path = uri.substring(OPENAPI_V1_PREFIX.length());
         return path.startsWith("/") ? path : "/" + path;
-    }
-
-    /**
-     * 读取请求体
-     */
-    private String readRequestBody(HttpServletRequest request) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = request.getReader()) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
-            }
-        }
-        return sb.toString();
     }
 
     /**
