@@ -11,10 +11,9 @@ import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.model.OpenApiData;
 import org.dbsyncer.common.model.RsaConfig;
 import org.dbsyncer.common.rsa.RsaManager;
-import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.common.util.JsonUtil;
-import org.dbsyncer.common.util.NumberUtil;
 import org.dbsyncer.common.util.StringUtil;
+import org.dbsyncer.connector.http.constant.HttpConstant;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.web.controller.BaseController;
 import org.dbsyncer.web.model.OpenApiResponse;
@@ -24,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.util.Assert;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,19 +43,12 @@ import org.springframework.web.util.UrlPathHelper;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 /**
  * OpenAPI控制器
@@ -99,9 +90,6 @@ public class OpenApiController extends BaseController implements InitializingBea
     private final UrlPathHelper urlPathHelper = new UrlPathHelper();
 
     private static final String OPENAPI_V1_PREFIX = "/openapi/v1";
-
-    // 是否公网场景（可通过配置或请求头判断）
-    private static final String PUBLIC_NETWORK_HEADER = "X-Public-Network";
 
     /**
      * OpenAPI v1 统一入口，将 /openapi/v1/xxx 转发到内部 Controller 的 /xxx
@@ -327,7 +315,7 @@ public class OpenApiController extends BaseController implements InitializingBea
      * 判断是否为公网场景
      */
     private boolean isPublicNetwork(HttpServletRequest request) {
-        return "true".equalsIgnoreCase(request.getHeader(PUBLIC_NETWORK_HEADER));
+        return "true".equalsIgnoreCase(request.getHeader(HttpConstant.PUBLIC_NETWORK_HEADER));
     }
 
 }

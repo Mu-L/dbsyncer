@@ -223,6 +223,7 @@ public class HttpConnector implements ConnectorService<HttpConnectorInstance, Ht
             OpenApiData dataObj = context.getRsaManager().encrypt(context.getRsaConfig(), params, publicNetwork);
             RequestBuilder builder = genRequestBuilder(connectorInstance, sourceTable);
             builder.setBodyAsJsonString(JSON.toJSONString(dataObj));
+            builder.addHeader(HttpConstant.PUBLIC_NETWORK_HEADER, String.valueOf(publicNetwork));
             return builder;
         }
 
