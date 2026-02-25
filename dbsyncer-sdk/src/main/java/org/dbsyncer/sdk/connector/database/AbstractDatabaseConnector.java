@@ -14,7 +14,11 @@ import org.dbsyncer.sdk.config.SqlBuilderConfig;
 import org.dbsyncer.sdk.connector.AbstractConnector;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.ConnectorServiceContext;
+import org.dbsyncer.sdk.connector.database.dialect.DefaultPreparedStatementSetterStrategy;
 import org.dbsyncer.sdk.connector.database.ds.SimpleConnection;
+import org.dbsyncer.sdk.connector.database.spring.EnhanceBatchPreparedStatementSetter;
+import org.dbsyncer.sdk.connector.database.spring.EnhancePreparedStatementSetter;
+import org.dbsyncer.sdk.connector.database.strategy.PreparedStatementSetterStrategy;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.constant.DatabaseConstant;
@@ -36,6 +40,9 @@ import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 
+import org.apache.commons.lang3.tuple.Pair;
+
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -49,6 +56,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,6 +79,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
+    private final DefaultPreparedStatementSetterStrategy preparedStatementSetterStrategy = new DefaultPreparedStatementSetterStrategy();
+
     public abstract String buildJdbcUrl(DatabaseConfig connectorConfig, String database);
 
     @Override
@@ -81,6 +91,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     @Override
     public Class<DatabaseConfig> getConfigClass() {
         return DatabaseConfig.class;
+    }
+
+    /**
+     * SQL语句参数设置策略
+     */
+    public PreparedStatementSetterStrategy getPreparedStatementSetterStrategy() {
+        return preparedStatementSetterStrategy;
     }
 
     @Override
@@ -315,7 +332,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                 try {
                     // 手动提交事务
                     connection.setAutoCommit(false);
-                    int[] r = databaseTemplate.batchUpdate(executeSql, batchRows(fields, data));
+                    Pair<List<Object[]>, int[]> rowValues = extractBatchRowValues(fields, data);
+                    EnhanceBatchPreparedStatementSetter batchPreparedStatementSetter = new EnhanceBatchPreparedStatementSetter(this, rowValues.getKey(), rowValues.getValue());
+                    int[] r = databaseTemplate.batchUpdate(executeSql, batchPreparedStatementSetter);
                     connection.commit();
                     return r;
                 } catch (Exception e) {
@@ -351,7 +370,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     private void forceUpdate(DatabaseConnectorInstance connectorInstance, PluginContext context, String executeSql, List<Field> fields, String event, List<Map> data, Result result) {
         data.forEach(row-> {
             try {
-                int execute = connectorInstance.execute(databaseTemplate->databaseTemplate.update(executeSql, batchRow(fields, row)));
+                Pair<Object[], int[]> rowValues = extractRowValues(fields, row, true);
+                EnhancePreparedStatementSetter preparedStatementSetter = new EnhancePreparedStatementSetter(this, rowValues.getKey(), rowValues.getValue());
+                int execute = connectorInstance.execute(databaseTemplate->databaseTemplate.update(executeSql, preparedStatementSetter));
                 if (execute == 0) {
                     throw new SdkException("数据不存在或执行异常");
                 }
@@ -363,6 +384,59 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                 printTraceLog(context, event, row, Boolean.FALSE, e.getMessage());
             }
         });
+    }
+
+    /**
+     * 批量处理行数据
+     *
+     * @param fields 字段
+     * @param row    数据行
+     * @return 参数
+     */
+    private Pair<Object[], @Nullable int[]> extractRowValues(List<Field> fields, Map row, boolean withType) {
+        List<Integer> types = null;
+        if (withType) {
+            types = new ArrayList<>();
+        }
+        List<Object> args = new ArrayList<>();
+        for (Field f : fields) {
+            Object val = row.get(f.getName());
+            if (val instanceof CustomData) {
+                CustomData cd = (CustomData) val;
+                Collection<?> extendedData = cd.apply();
+                args.addAll(extendedData);
+                if (withType) {
+                    types.addAll(Collections.nCopies(extendedData.size(), f.getType()));
+                }
+                continue;
+            }
+            args.add(val);
+            if (withType) {
+                types.add(f.getType());
+            }
+        }
+        if (withType) {
+            return Pair.of(args.toArray(), types.stream().mapToInt(Integer::intValue).toArray());
+        } else {
+            return Pair.of(args.toArray(), null);
+        }
+    }
+
+    /**
+     * @see #extractRowValues
+     */
+    private Pair<List<Object[]>, int[]> extractBatchRowValues(List<Field> fields, List<Map> data) {
+        // 第一次调用获取类型数组
+        Pair<Object[], int[]> firstRowValues = extractRowValues(fields, data.get(0), true);
+        int[] types = firstRowValues.getRight(); // 保存类型数组
+
+        // 后续调用不再传递 withType=true，直接复用 types
+        List<Object[]> rowValuesCollection = new ArrayList<>();
+        rowValuesCollection.add(firstRowValues.getLeft()); // 将第一行结果加入列表
+        rowValuesCollection.addAll(data.stream().skip(1) // 跳过第一行
+                .map(row->extractRowValues(fields, row, false).getLeft()).collect(Collectors.toList()));
+
+        return Pair.of(rowValuesCollection, types);
     }
 
     @Override
@@ -499,16 +573,16 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     /**
      * 构建复合键的游标分页条件（支持任意数量的主键）
-     * 
+     *
      * <p>对于单字段主键 (pk1)：生成条件：pk1 > ?</p>
      * <p>对于2字段主键 (pk1, pk2)：生成条件：(pk1 > ?) OR (pk1 = ? AND pk2 > ?)</p>
      * <p>对于3字段主键 (pk1, pk2, pk3)：生成条件：(pk1 > ?) OR (pk1 = ? AND pk2 > ?) OR (pk1 = ? AND pk2 = ? AND pk3 > ?)</p>
      * <p>对于n字段主键：依此类推...</p>
-     * 
+     *
      * <p>原理：对于复合键 (pk1, pk2, ..., pkn)，要查询所有大于 (v1, v2, ..., vn) 的记录，
      * 需要满足：(pk1 > v1) OR (pk1 = v1 AND pk2 > v2) OR ... OR (pk1 = v1 AND pk2 = v2 AND ... AND pkn > vn)</p>
-     * 
-     * @param sql SQL构建器
+     *
+     * @param sql         SQL构建器
      * @param primaryKeys 主键列表（支持任意长度）
      * @param noCondition 无过滤条件
      */
@@ -589,7 +663,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      *
      * @param sql    SQL构建器
      * @param config PageSql配置
-    w     */
+     *               w
+     */
     protected void buildCursorConditionOnly(StringBuilder sql, PageSql config) {
         boolean noCondition = StringUtil.isBlank(config.getQueryFilter());
         // 没有过滤条件
@@ -610,7 +685,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      * <p>用于在getPageSql方法中为非游标分页查询添加ORDER BY子句，确保分页结果的一致性</p>
      * <p>注意：非游标分页场景也必须添加ORDER BY，否则会导致数据重复或遗漏</p>
      *
-     * @param sql SQL构建器
+     * @param sql    SQL构建器
      * @param config PageSql配置
      */
     protected void appendOrderByPrimaryKeys(StringBuilder sql, PageSql config) {
@@ -622,9 +697,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     /**
      * 构建游标分页的参数数组核心逻辑（不包括数据库特定的OFFSET等参数）
-     * 
+     *
      * <p>返回游标条件参数，不包含pageSize等分页参数</p>
-     * 
+     *
      * @param cursors 当前游标值数组
      * @return 游标条件参数数组，如果无游标则返回null
      */
@@ -859,24 +934,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             result.getError().append(String.format("执行ddl: %s, 异常：%s", config.getSql(), e.getMessage()));
         }
         return result;
-    }
-
-    private List<Object[]> batchRows(List<Field> fields, List<Map> data) {
-        return data.stream().map(row->batchRow(fields, row)).collect(Collectors.toList());
-    }
-
-    private Object[] batchRow(List<Field> fields, Map row) {
-        List<Object> args = new ArrayList<>();
-        for (Field f : fields) {
-            Object val = row.get(f.getName());
-            if (val instanceof CustomData) {
-                CustomData cd = (CustomData) val;
-                args.addAll(cd.apply());
-                continue;
-            }
-            args.add(val);
-        }
-        return args.toArray();
     }
 
     private void printTraceLog(PluginContext context, String event, Map row, boolean success, String message) {
