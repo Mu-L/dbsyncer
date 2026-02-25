@@ -2,9 +2,10 @@ package org.dbsyncer.web.controller.user;
 
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.vo.RestResult;
-import org.dbsyncer.biz.vo.UserInfoVo;
+import org.dbsyncer.biz.vo.UserInfoVO;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.web.controller.BaseController;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+
 import java.util.Map;
 
 /**
@@ -111,7 +113,7 @@ public class UserController extends BaseController {
      *
      * @return
      */
-    private UserInfoVo getUserInfoVo() {
+    private UserInfoVO getUserInfoVo() {
         String currentUserName = getUserName();
         return userConfigService.getUserInfoVo(currentUserName, currentUserName);
     }
@@ -122,6 +124,5 @@ public class UserController extends BaseController {
         Assert.hasText(username, "无法获取登录用户.");
         return username;
     }
-
 
 }

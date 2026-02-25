@@ -16,7 +16,7 @@ import java.util.List;
 public class IpWhitelistConfig {
 
     /**
-     * 是否启用IP白名单
+     * 启用IP白名单
      */
     private boolean enabled = false;
 
@@ -55,7 +55,7 @@ public class IpWhitelistConfig {
 
     /**
      * 添加IP到白名单
-     * 
+     *
      * @param ip IP地址或IP段
      */
     public void addIp(String ip) {
@@ -69,7 +69,7 @@ public class IpWhitelistConfig {
 
     /**
      * 移除IP
-     * 
+     *
      * @param ip IP地址或IP段
      */
     public void removeIp(String ip) {

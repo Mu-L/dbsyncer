@@ -14,8 +14,11 @@ import org.dbsyncer.sdk.config.SqlBuilderConfig;
 import org.dbsyncer.sdk.connector.AbstractConnector;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.ConnectorServiceContext;
-import org.dbsyncer.sdk.schema.CustomData;
+import org.dbsyncer.sdk.connector.database.dialect.DefaultPreparedStatementSetterStrategy;
 import org.dbsyncer.sdk.connector.database.ds.SimpleConnection;
+import org.dbsyncer.sdk.connector.database.spring.EnhanceBatchPreparedStatementSetter;
+import org.dbsyncer.sdk.connector.database.spring.EnhancePreparedStatementSetter;
+import org.dbsyncer.sdk.connector.database.strategy.PreparedStatementSetterStrategy;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.constant.DatabaseConstant;
@@ -29,6 +32,7 @@ import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.PageSql;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.plugin.MetaContext;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
@@ -37,6 +41,8 @@ import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.jdbc.support.rowset.ResultSetWrappingSqlRowSet;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.jdbc.support.rowset.SqlRowSetMetaData;
@@ -69,6 +75,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
+    private final DefaultPreparedStatementSetterStrategy preparedStatementSetterStrategy = new DefaultPreparedStatementSetterStrategy();
+
     public abstract String buildJdbcUrl(DatabaseConfig connectorConfig, String database);
 
     @Override
@@ -93,13 +101,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     @Override
     public boolean isAlive(DatabaseConnectorInstance connectorInstance) {
-        Integer count = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForObject(getValidationQuery(), Integer.class));
+        Integer count = connectorInstance.execute(databaseTemplate->databaseTemplate.queryForObject(getValidationQuery(), Integer.class));
         return null != count && count > 0;
     }
 
     @Override
     public List<Table> getTable(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
-        return connectorInstance.execute(databaseTemplate -> {
+        return connectorInstance.execute(databaseTemplate-> {
             SimpleConnection connection = databaseTemplate.getSimpleConnection();
             Connection conn = connection.getConnection();
             // 兼容处理 schema 和 catalog
@@ -124,7 +132,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     @Override
     public List<MetaInfo> getMetaInfo(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
-        return connectorInstance.execute(databaseTemplate -> {
+        return connectorInstance.execute(databaseTemplate-> {
             SimpleConnection connection = databaseTemplate.getSimpleConnection();
             Connection conn = connection.getConnection();
             final String catalog = getCatalog(context.getCatalog(), conn);
@@ -159,6 +167,25 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             }
             return metaInfos;
         });
+    }
+
+    @Override
+    public Result writerDDL(DatabaseConnectorInstance connectorInstance, DDLConfig config) {
+        Result result = new Result();
+        try {
+            Assert.hasText(config.getSql(), "执行SQL语句不能为空.");
+            connectorInstance.execute(databaseTemplate-> {
+                // 执行ddl时, 带上dbs唯一标识码，防止双向同步导致死循环
+                databaseTemplate.execute(DatabaseConstant.DBS_UNIQUE_CODE.concat(config.getSql()));
+                return true;
+            });
+            Map<String, String> successMap = new HashMap<>();
+            successMap.put(ConfigConstant.BINLOG_DATA, config.getSql());
+            result.addSuccessData(Collections.singletonList(successMap));
+        } catch (Exception e) {
+            result.getError().append(String.format("执行ddl: %s, 异常：%s", config.getSql(), e.getMessage()));
+        }
+        return result;
     }
 
     private void getMetaInfoWithSQL(DatabaseTemplate databaseTemplate, List<MetaInfo> metaInfos, String catalog, String schema, Table t) throws SQLException {
@@ -222,11 +249,12 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         if (CollectionUtils.isEmpty(pk)) {
             return false;
         }
-        return pk.stream().anyMatch(key -> key.equalsIgnoreCase(name));
+        return pk.stream().anyMatch(key->key.equalsIgnoreCase(name));
     }
 
     @Override
-    public long getCount(DatabaseConnectorInstance connectorInstance, Map<String, String> command) {
+    public long getCount(DatabaseConnectorInstance connectorInstance, MetaContext metaContext) {
+        Map<String, String> command = metaContext.getCommand();
         if (CollectionUtils.isEmpty(command)) {
             return 0L;
         }
@@ -239,7 +267,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
         // 2、返回结果集
         try {
-            return connectorInstance.execute(databaseTemplate -> {
+            return connectorInstance.execute(databaseTemplate-> {
                 Long count = databaseTemplate.queryForObject(queryCountSql, Long.class);
                 return count == null ? 0 : count;
             });
@@ -260,7 +288,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         Collections.addAll(context.getArgs(), supportedCursor ? getPageCursorArgs(context) : getPageArgs(context));
 
         // 3、执行SQL
-        List<Map<String, Object>> list = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(querySql, context.getArgs().toArray()));
+        List<Map<String, Object>> list = connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(querySql, context.getArgs().toArray()));
 
         // 4、返回结果集
         return new Result(list);
@@ -287,10 +315,10 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             executeSql = context.getCommand().get(event);
             fields.clear();
             fields.addAll(PrimaryKeyUtil.findExistPrimaryKeyFields(targetFields));
-        } else if(context.isForceUpdate()){
+        } else if (context.isForceUpdate()) {
             // 开启覆盖
             executeSql = context.getCommand().get(ConnectorConstant.OPERTION_UPSERT);
-        } else if(isUpdate(event)) {
+        } else if (isUpdate(event)) {
             // 修改操作
             fields.addAll(PrimaryKeyUtil.findPrimaryKeyFields(fields));
             executeSql = context.getCommand().get(event);
@@ -307,12 +335,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         int[] execute = null;
         try {
             // 2、设置参数
-            execute = connectorInstance.execute(databaseTemplate -> {
+            execute = connectorInstance.execute(databaseTemplate-> {
                 SimpleConnection connection = databaseTemplate.getSimpleConnection();
                 try {
                     // 手动提交事务
                     connection.setAutoCommit(false);
-                    int[] r = databaseTemplate.batchUpdate(executeSql, batchRows(fields, data));
+                    BatchPreparedStatementSetter pss = new EnhanceBatchPreparedStatementSetter(getPreparedStatementSetterStrategy(), fields, data);
+                    int[] r = databaseTemplate.batchUpdate(executeSql, pss);
                     connection.commit();
                     return r;
                 } catch (Exception e) {
@@ -345,11 +374,11 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         return result;
     }
 
-    private void forceUpdate(DatabaseConnectorInstance connectorInstance, PluginContext context,
-                           String executeSql, List<Field> fields, String event, List<Map> data, Result result) {
-        data.forEach(row -> {
+    private void forceUpdate(DatabaseConnectorInstance connectorInstance, PluginContext context, String executeSql, List<Field> fields, String event, List<Map> data, Result result) {
+        data.forEach(row-> {
             try {
-                int execute = connectorInstance.execute(databaseTemplate -> databaseTemplate.update(executeSql, batchRow(fields, row)));
+                PreparedStatementSetter pss = new EnhancePreparedStatementSetter(getPreparedStatementSetterStrategy(), fields, row);
+                int execute = connectorInstance.execute(databaseTemplate->databaseTemplate.update(executeSql, pss));
                 if (execute == 0) {
                     throw new SdkException("数据不存在或执行异常");
                 }
@@ -497,16 +526,16 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     /**
      * 构建复合键的游标分页条件（支持任意数量的主键）
-     * 
+     *
      * <p>对于单字段主键 (pk1)：生成条件：pk1 > ?</p>
      * <p>对于2字段主键 (pk1, pk2)：生成条件：(pk1 > ?) OR (pk1 = ? AND pk2 > ?)</p>
      * <p>对于3字段主键 (pk1, pk2, pk3)：生成条件：(pk1 > ?) OR (pk1 = ? AND pk2 > ?) OR (pk1 = ? AND pk2 = ? AND pk3 > ?)</p>
      * <p>对于n字段主键：依此类推...</p>
-     * 
+     *
      * <p>原理：对于复合键 (pk1, pk2, ..., pkn)，要查询所有大于 (v1, v2, ..., vn) 的记录，
      * 需要满足：(pk1 > v1) OR (pk1 = v1 AND pk2 > v2) OR ... OR (pk1 = v1 AND pk2 = v2 AND ... AND pkn > vn)</p>
-     * 
-     * @param sql SQL构建器
+     *
+     * @param sql         SQL构建器
      * @param primaryKeys 主键列表（支持任意长度）
      * @param noCondition 无过滤条件
      */
@@ -514,7 +543,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         if (primaryKeys.isEmpty()) {
             return;
         }
-        
+
         // 单字段主键：直接使用 pk > ?
         if (primaryKeys.size() == 1) {
             if (!noCondition) {
@@ -523,19 +552,19 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             sql.append(primaryKeys.get(0)).append(" > ? ");
             return;
         }
-        
+
         // 复合键：构建 (pk1 > ?) OR (pk1 = ? AND pk2 > ?) OR ...
         if (!noCondition) {
             sql.append(" AND ");
         }
         sql.append("(");
-        
+
         for (int i = 0; i < primaryKeys.size(); i++) {
             if (i > 0) {
                 sql.append(" OR ");
             }
             sql.append("(");
-            
+
             // 前面的字段都是等号
             for (int j = 0; j < i; j++) {
                 if (j > 0) {
@@ -543,7 +572,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                 }
                 sql.append(primaryKeys.get(j)).append(" = ? ");
             }
-            
+
             // 最后一个字段使用大于号
             if (i > 0) {
                 sql.append(" AND ");
@@ -551,7 +580,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             sql.append(primaryKeys.get(i)).append(" > ? ");
             sql.append(")");
         }
-        
+
         sql.append(") ");
     }
 
@@ -587,7 +616,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      *
      * @param sql    SQL构建器
      * @param config PageSql配置
-w     */
+     */
     protected void buildCursorConditionOnly(StringBuilder sql, PageSql config) {
         boolean noCondition = StringUtil.isBlank(config.getQueryFilter());
         // 没有过滤条件
@@ -608,7 +637,7 @@ w     */
      * <p>用于在getPageSql方法中为非游标分页查询添加ORDER BY子句，确保分页结果的一致性</p>
      * <p>注意：非游标分页场景也必须添加ORDER BY，否则会导致数据重复或遗漏</p>
      *
-     * @param sql SQL构建器
+     * @param sql    SQL构建器
      * @param config PageSql配置
      */
     protected void appendOrderByPrimaryKeys(StringBuilder sql, PageSql config) {
@@ -620,9 +649,9 @@ w     */
 
     /**
      * 构建游标分页的参数数组核心逻辑（不包括数据库特定的OFFSET等参数）
-     * 
+     *
      * <p>返回游标条件参数，不包含pageSize等分页参数</p>
-     * 
+     *
      * @param cursors 当前游标值数组
      * @return 游标条件参数数组，如果无游标则返回null
      */
@@ -635,10 +664,10 @@ w     */
         if (pkCount == 1) {
             return new Object[]{cursors[0]};
         }
-        
+
         // 复合键（支持任意数量的主键）
         // WHERE 条件为 (pk1 > ?) OR (pk1 = ? AND pk2 > ?) OR (pk1 = ? AND pk2 = ? AND pk3 > ?) OR ...
-        // 
+        //
         // 参数数量计算：等差数列求和
         // - 1个主键：1个参数 (pk1 > ?)
         // - 2个主键：1+2=3个参数 (pk1 > ?) OR (pk1 = ? AND pk2 > ?)
@@ -646,12 +675,12 @@ w     */
         // - n个主键：1+2+...+n = n*(n+1)/2 个参数
         //
         // 参数顺序示例（2个主键，cursors=[v1, v2]）：
-        //   [v1, v1, v2] 对应条件 (pk1 > v1) OR (pk1 = v1 AND pk2 > v2)
+        // [v1, v1, v2] 对应条件 (pk1 > v1) OR (pk1 = v1 AND pk2 > v2)
         // 参数顺序示例（3个主键，cursors=[v1, v2, v3]）：
-        //   [v1, v1, v2, v1, v2, v3] 对应条件 (pk1 > v1) OR (pk1 = v1 AND pk2 > v2) OR (pk1 = v1 AND pk2 = v2 AND pk3 > v3)
+        // [v1, v1, v2, v1, v2, v3] 对应条件 (pk1 > v1) OR (pk1 = v1 AND pk2 > v2) OR (pk1 = v1 AND pk2 = v2 AND pk3 > v3)
         int paramCount = pkCount * (pkCount + 1) / 2;
         Object[] cursorArgs = new Object[paramCount];
-        
+
         int index = 0;
         // 遍历每个主键字段，生成对应的参数
         for (int i = 0; i < pkCount; i++) {
@@ -662,8 +691,15 @@ w     */
             // 第 i 个主键使用大于号条件
             cursorArgs[index++] = cursors[i];
         }
-        
+
         return cursorArgs;
+    }
+
+    /**
+     * SQL语句参数设置策略
+     */
+    protected PreparedStatementSetterStrategy getPreparedStatementSetterStrategy() {
+        return preparedStatementSetterStrategy;
     }
 
     /**
@@ -679,7 +715,7 @@ w     */
         }
         Table table = commandConfig.getTable();
         Map<String, Field> fieldMap = new HashMap<>();
-        table.getColumn().forEach(field -> fieldMap.put(field.getName(), field));
+        table.getColumn().forEach(field->fieldMap.put(field.getName(), field));
 
         // 过滤条件SQL
         StringBuilder sql = new StringBuilder();
@@ -700,8 +736,8 @@ w     */
         sql.append(orSql);
 
         // 自定义SQL
-        Optional<Filter> sqlFilter = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), OperationEnum.SQL.getName())).findFirst();
-        sqlFilter.ifPresent(f -> sql.append(f.getValue()));
+        Optional<Filter> sqlFilter = filter.stream().filter(f->StringUtil.equals(f.getOperation(), OperationEnum.SQL.getName())).findFirst();
+        sqlFilter.ifPresent(f->sql.append(f.getValue()));
 
         // 如果有条件加上 WHERE
         if (StringUtil.isNotBlank(sql.toString())) {
@@ -742,7 +778,7 @@ w     */
      * @return
      */
     private String buildFilterSql(Map<String, Field> fieldMap, String operator, List<Filter> filter) {
-        List<Filter> list = filter.stream().filter(f -> StringUtil.equals(f.getOperation(), operator)).collect(Collectors.toList());
+        List<Filter> list = filter.stream().filter(f->StringUtil.equals(f.getOperation(), operator)).collect(Collectors.toList());
         if (CollectionUtils.isEmpty(list)) {
             return "";
         }
@@ -826,7 +862,7 @@ w     */
      * @throws SQLException
      */
     private List<String> findTablePrimaryKeys(DatabaseMetaData md, String catalog, String schema, String tableName) throws SQLException {
-        //根据表名获得主键结果集
+        // 根据表名获得主键结果集
         ResultSet rs = null;
         List<String> primaryKeys = new ArrayList<>();
         try {
@@ -840,51 +876,14 @@ w     */
         return primaryKeys;
     }
 
-    @Override
-    public Result writerDDL(DatabaseConnectorInstance connectorInstance, DDLConfig config) {
-        Result result = new Result();
-        try {
-            Assert.hasText(config.getSql(), "执行SQL语句不能为空.");
-            connectorInstance.execute(databaseTemplate -> {
-                // 执行ddl时, 带上dbs唯一标识码，防止双向同步导致死循环
-                databaseTemplate.execute(DatabaseConstant.DBS_UNIQUE_CODE.concat(config.getSql()));
-                return true;
-            });
-            Map<String, String> successMap = new HashMap<>();
-            successMap.put(ConfigConstant.BINLOG_DATA, config.getSql());
-            result.addSuccessData(Collections.singletonList(successMap));
-        } catch (Exception e) {
-            result.getError().append(String.format("执行ddl: %s, 异常：%s", config.getSql(), e.getMessage()));
-        }
-        return result;
-    }
-
-    private List<Object[]> batchRows(List<Field> fields, List<Map> data) {
-        return data.stream().map(row -> batchRow(fields, row)).collect(Collectors.toList());
-    }
-
-    private Object[] batchRow(List<Field> fields, Map row) {
-        List<Object> args = new ArrayList<>();
-        for (Field f : fields) {
-            Object val = row.get(f.getName());
-            if (val instanceof CustomData) {
-                CustomData cd = (CustomData) val;
-                args.addAll(cd.apply());
-                continue;
-            }
-            args.add(val);
-        }
-        return args.toArray();
-    }
-
     private void printTraceLog(PluginContext context, String event, Map row, boolean success, String message) {
         if (success) {
             // 仅开启traceId时才输出日志
             if (context.isEnablePrintTraceInfo()) {
-                logger.info("{} {}表事件{}, 执行{}成功, {}", context.getTraceId(), context.getTargetTableName(), context.getEvent(), event, row);
+                logger.info("{} {}表事件{}, 执行{}成功, {}", context.getTraceId(), context.getTargetTable().getName(), context.getEvent(), event, row);
             }
             return;
         }
-        logger.error("{} {}表事件{}, 执行{}失败:{}, DATA:{}", context.getTraceId(), context.getTargetTableName(), context.getEvent(), event, message, row);
+        logger.error("{} {}表事件{}, 执行{}失败:{}, DATA:{}", context.getTraceId(), context.getTargetTable().getName(), context.getEvent(), event, message, row);
     }
 }

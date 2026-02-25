@@ -3,9 +3,6 @@
  */
 package org.dbsyncer.connector.kafka;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.KafkaException;
 import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
@@ -24,11 +21,17 @@ import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.plugin.MetaContext;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.KafkaException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,7 +131,7 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
     }
 
     @Override
-    public long getCount(KafkaConnectorInstance connectorInstance, Map<String, String> command) {
+    public long getCount(KafkaConnectorInstance connectorInstance, MetaContext metaContext) {
         return 0;
     }
 
@@ -151,7 +154,7 @@ public class KafkaConnector extends AbstractConnector implements ConnectorServic
             String topic = context.getCommand().get(TOPIC);
             KafkaProducer<String, Object> producer = connectorInstance.getProducer(topic);
             String key = StringUtil.join(pkFields, StringUtil.UNDERLINE);
-            data.forEach(row -> producer.send(new ProducerRecord<>(topic, key, row)));
+            data.forEach(row->producer.send(new ProducerRecord<>(topic, key, row)));
             result.addSuccessData(data);
         } catch (Exception e) {
             // 记录错误数据

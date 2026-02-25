@@ -4,6 +4,7 @@
 package org.dbsyncer.parser.impl;
 
 import org.dbsyncer.common.model.Result;
+import org.dbsyncer.common.rsa.RsaManager;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
@@ -32,6 +33,7 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
@@ -39,6 +41,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,6 +76,9 @@ public class ParserComponentImpl implements ParserComponent {
     @Resource
     private ApplicationContext applicationContext;
 
+    @Resource
+    private RsaManager rsaManager;
+
     @Override
     public List<MetaInfo> getMetaInfo(DefaultConnectorServiceContext context) {
         String instanceId = ConnectorInstanceUtil.buildConnectorInstanceId(context.getMappingId(), context.getConnectorId(), context.getSuffix());
@@ -90,7 +96,7 @@ public class ParserComponentImpl implements ParserComponent {
         Table tTable = targetTable.clone().setColumn(new ArrayList<>());
         List<FieldMapping> fieldMapping = tableGroup.getFieldMapping();
         if (!CollectionUtils.isEmpty(fieldMapping)) {
-            fieldMapping.forEach(m -> {
+            fieldMapping.forEach(m-> {
                 if (null != m.getSource()) {
                     sTable.getColumn().add(m.getSource());
                 }
@@ -124,39 +130,38 @@ public class ParserComponentImpl implements ParserComponent {
         Map<String, String> command = group.getCommand();
         Assert.notEmpty(command, "执行命令不能为空.");
         List<FieldMapping> fieldMapping = group.getFieldMapping();
-        Table sourceTable = group.getSourceTable();
-        String sTableName = sourceTable.getName();
+        String sTableName = group.getSourceTable().getName();
         String tTableName = group.getTargetTable().getName();
         Assert.notEmpty(fieldMapping, String.format("数据源表[%s]同步到目标源表[%s], 映射关系不能为空.", sTableName, tTableName));
         // 获取同步字段
         Picker picker = new Picker(group);
         // 游标分页时使用与构建 QUERY_CURSOR 一致的主键列表，避免 findTablePrimaryKeys 返回表上未参与游标的主键（如 id）导致 getLastCursors 多取游标值、参数个数与 SQL 占位符不一致
         boolean enableCursor = StringUtil.isNotBlank(command.get(ConnectorConstant.OPERTION_QUERY_CURSOR));
-        List<String> primaryKeys = getPrimaryKeysForCursor(command, sourceTable, enableCursor);
+        List<String> primaryKeys = getPrimaryKeysForCursor(command, group.getSourceTable(), enableCursor);
         final FullPluginContext context = new FullPluginContext();
 
         String sourceInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(mapping.getId(), sourceConnectorId, ConnectorInstanceUtil.SOURCE_SUFFIX);
         String targetInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(mapping.getId(), targetConnectorId, ConnectorInstanceUtil.TARGET_SUFFIX);
         context.setSourceConnectorInstance(connectorFactory.connect(sourceInstanceId));
         context.setTargetConnectorInstance(connectorFactory.connect(targetInstanceId));
-        context.setSourceTableName(sTableName);
-        context.setTargetTableName(tTableName);
         context.setEvent(ConnectorConstant.OPERTION_INSERT);
         context.setCommand(command);
         context.setBatchSize(mapping.getBatchNum());
         context.setPlugin(group.getPlugin());
         context.setPluginExtInfo(group.getPluginExtInfo());
         context.setForceUpdate(mapping.isForceUpdate());
-        context.setSourceTable(sourceTable);
+        context.setSourceTable(group.getSourceTable());
+        context.setTargetTable(group.getTargetTable());
         context.setTargetFields(picker.getTargetFields());
         context.setSupportedCursor(enableCursor);
         context.setPageSize(mapping.getReadNum());
+        setRsaConfig(context);
         ConnectorService sourceConnector = connectorFactory.getConnectorService(context.getSourceConnectorInstance().getConfig());
         picker.setSourceResolver(sourceConnector.getSchemaResolver());
         // 0、插件前置处理
         pluginFactory.process(context, ProcessEnum.BEFORE);
 
-        for (; ; ) {
+        for (;;) {
             if (!task.isRunning()) {
                 logger.warn("任务被中止:{}", metaId);
                 break;
@@ -197,18 +202,12 @@ public class ParserComponentImpl implements ParserComponent {
             // 7、同步完成后通知插件做后置处理
             pluginFactory.process(context, ProcessEnum.AFTER);
 
-            // 8、判断尾页（必须在 clear 之前用本批条数判断，因 source 与 getSourceList() 同一引用，clear 后 size 会变 0）
-            int sourceSize = source.size();
-            // 释放本批数据引用，避免 context 长期持有大 List（如 10000 条），减轻 LinkedList 保留内存
+            // 8、释放本批数据引用，避免 context 长期持有大 List（如 10000 条），减轻 LinkedList 保留内存
             if (context.getSourceList() != null) {
                 context.getSourceList().clear();
             }
             if (context.getTargetList() != null) {
                 context.getTargetList().clear();
-            }
-            if (sourceSize < context.getPageSize()) {
-                logger.info("完成全量:{}, [{}] >> [{}]", metaId, sTableName, tTableName);
-                break;
             }
         }
     }
@@ -239,7 +238,7 @@ public class ParserComponentImpl implements ParserComponent {
                 PluginContext tmpContext = (PluginContext) context.clone();
                 tmpContext.setTargetList(context.getTargetList().stream().skip(offset).limit(batchSize).collect(Collectors.toList()));
                 offset += batchSize;
-                executor.execute(() -> {
+                executor.execute(()-> {
                     try {
                         Result w = connectorFactory.writer(tmpContext);
                         result.addSuccessData(w.getSuccessData());
@@ -262,6 +261,13 @@ public class ParserComponentImpl implements ParserComponent {
             logger.error(e.getMessage());
         }
         return result;
+    }
+
+    private void setRsaConfig(FullPluginContext context) {
+        if (profileComponent.getSystemConfig().isEnableOpenAPI()) {
+            context.setRsaManager(rsaManager);
+            context.setRsaConfig(profileComponent.getSystemConfig().getRsaConfig());
+        }
     }
 
     /**

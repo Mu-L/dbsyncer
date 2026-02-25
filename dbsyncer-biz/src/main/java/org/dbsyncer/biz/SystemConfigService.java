@@ -3,8 +3,8 @@
  */
 package org.dbsyncer.biz;
 
-import org.dbsyncer.biz.vo.SystemConfigVo;
-import org.dbsyncer.common.model.RSAConfig;
+import org.dbsyncer.biz.vo.SystemConfigVO;
+import org.dbsyncer.common.model.RsaVersion;
 import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
 
@@ -33,7 +33,7 @@ public interface SystemConfigService {
      *
      * @return
      */
-    SystemConfigVo getSystemConfigVo();
+    SystemConfigVO getSystemConfigVo();
 
     /**
      * 获取系统配置
@@ -77,5 +77,13 @@ public interface SystemConfigService {
      * @param keyLength
      * @return
      */
-    RSAConfig createRSAConfig(int keyLength);
+    RsaVersion createRSAConfig(int keyLength);
+
+    /**
+     * 生成并保存 API 密钥（OpenAPI 登录凭证）
+     * 返回明文密钥，仅展示一次，请妥善保管
+     *
+     * @return 新生成的 API 密钥
+     */
+    String generateApiSecret();
 }

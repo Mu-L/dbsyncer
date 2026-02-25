@@ -11,11 +11,12 @@ import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.checker.impl.mapping.MappingChecker;
 import org.dbsyncer.biz.task.MappingCountTask;
 import org.dbsyncer.biz.vo.MappingCustomTableVO;
-import org.dbsyncer.biz.vo.MappingVo;
-import org.dbsyncer.biz.vo.MetaVo;
+import org.dbsyncer.biz.vo.MappingVO;
+import org.dbsyncer.biz.vo.MetaVO;
 import org.dbsyncer.biz.vo.TableVO;
 import org.dbsyncer.common.dispatch.DispatchTaskService;
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.rsa.RsaManager;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
@@ -33,6 +34,7 @@ import org.dbsyncer.parser.model.Meta;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.util.ConnectorInstanceUtil;
 import org.dbsyncer.parser.util.ConnectorServiceContextUtil;
+import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.connector.ConfigValidator;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.DefaultConnectorServiceContext;
@@ -44,6 +46,7 @@ import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -51,6 +54,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -107,6 +111,9 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     @Resource
     private PreloadTemplate preloadTemplate;
 
+    @Resource
+    private RsaManager rsaManager;
+
     @Override
     public String add(Map<String, String> params) {
         ConfigModel model = mappingChecker.checkAddConfigModel(params);
@@ -151,7 +158,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         // 复制映射表关系
         List<TableGroup> groupList = profileComponent.getTableGroupAll(mapping.getId());
         if (!CollectionUtils.isEmpty(groupList)) {
-            groupList.forEach(tableGroup -> {
+            groupList.forEach(tableGroup-> {
                 String tableGroupJson = JsonUtil.objToJson(tableGroup);
                 TableGroup newTableGroup = JsonUtil.jsonToObj(tableGroupJson, TableGroup.class);
                 newTableGroup.setId(String.valueOf(snowflakeIdWorker.nextId()));
@@ -201,7 +208,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             // 删除tableGroup
             List<TableGroup> groupList = profileComponent.getTableGroupAll(id);
             if (!CollectionUtils.isEmpty(groupList)) {
-                groupList.forEach(t -> profileComponent.removeTableGroup(t.getId()));
+                groupList.forEach(t->profileComponent.removeTableGroup(t.getId()));
             }
 
             // 删除驱动表映射关系
@@ -221,7 +228,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     }
 
     @Override
-    public MappingVo getMapping(String id) {
+    public MappingVO getMapping(String id) {
         Mapping mapping = profileComponent.getMapping(id);
         return convertMapping2Vo(mapping);
     }
@@ -236,15 +243,15 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         List<Table> tables = isSource ? mapping.getSourceTable() : mapping.getTargetTable();
         String connectorId = isSource ? mapping.getSourceConnectorId() : mapping.getTargetConnectorId();
         ConnectorConfig config = profileComponent.getConnector(connectorId).getConfig();
-        ConnectorService<?,?> connectorService = connectorFactory.getConnectorService(config);
-        vo.setConnectorType(connectorService.getConnectorType());
+        ConnectorService<?, ?> connectorService = connectorFactory.getConnectorService(config);
+        vo.setConnectorConfig(config);
         vo.setExtendedType(connectorService.getExtendedTableType().getCode());
 
         // 只返回自定义表类型
         if (!CollectionUtils.isEmpty(tables)) {
             List<Table> mainTables = new ArrayList<>();
             List<TableVO> customTables = new ArrayList<>();
-            tables.forEach(t -> {
+            tables.forEach(t-> {
                 switch (TableTypeEnum.getTableType(t.getType())) {
                     case SQL:
                     case SEMI:
@@ -267,24 +274,24 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     }
 
     @Override
-    public MappingVo getMapping(String id, Integer exclude) {
+    public MappingVO getMapping(String id, Integer exclude) {
         Mapping mapping = profileComponent.getMapping(id);
         // 显示所有表
         if (exclude != null && exclude == 1) {
             return convertMapping2Vo(mapping);
         }
         // 过滤已映射的表
-        MappingVo vo = convertMapping2Vo(mapping);
+        MappingVO vo = convertMapping2Vo(mapping);
         List<TableGroup> tableGroupAll = tableGroupService.getTableGroupAll(id);
         if (!CollectionUtils.isEmpty(tableGroupAll)) {
             final Set<String> sTables = new HashSet<>();
             final Set<String> tTables = new HashSet<>();
-            tableGroupAll.forEach(tableGroup -> {
+            tableGroupAll.forEach(tableGroup-> {
                 sTables.add(tableGroup.getSourceTable().getName());
                 tTables.add(tableGroup.getTargetTable().getName());
             });
-            vo.setSourceTable(mapping.getSourceTable().stream().filter(t -> !CollectionUtils.isEmpty(sTables) && !sTables.contains(t.getName())).collect(Collectors.toList()));
-            vo.setTargetTable(mapping.getTargetTable().stream().filter(t -> !CollectionUtils.isEmpty(tTables) && !tTables.contains(t.getName())).collect(Collectors.toList()));
+            vo.setSourceTable(mapping.getSourceTable().stream().filter(t->!CollectionUtils.isEmpty(sTables) && !sTables.contains(t.getName())).collect(Collectors.toList()));
+            vo.setTargetTable(mapping.getTargetTable().stream().filter(t->!CollectionUtils.isEmpty(tTables) && !tTables.contains(t.getName())).collect(Collectors.toList()));
             sTables.clear();
             tTables.clear();
         }
@@ -292,16 +299,12 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
     }
 
     @Override
-    public List<MappingVo> getMappingAll() {
-        return profileComponent.getMappingAll()
-                .stream()
-                .map(this::convertMapping2Vo)
-                .sorted(Comparator.comparing(MappingVo::getUpdateTime).reversed())
-                .collect(Collectors.toList());
+    public List<MappingVO> getMappingAll() {
+        return profileComponent.getMappingAll().stream().map(this::convertMapping2Vo).sorted(Comparator.comparing(MappingVO::getUpdateTime).reversed()).collect(Collectors.toList());
     }
 
     @Override
-    public Paging<MappingVo> search(Map<String, String> params) {
+    public Paging<MappingVO> search(Map<String, String> params) {
         return searchConfigModel(params, getMappingAll());
     }
 
@@ -406,6 +409,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         task.setProfileComponent(profileComponent);
         task.setTableGroupService(tableGroupService);
         task.setConnectorFactory(connectorFactory);
+        task.setRsaManager(rsaManager);
         dispatchTaskService.execute(task);
     }
 
@@ -416,7 +420,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         // 合并自定义表
         List<Table> customTables = new ArrayList<>();
         List<Table> tables = getMappingTables(mapping, isSource);
-        tables.forEach(t -> {
+        tables.forEach(t-> {
             switch (TableTypeEnum.getTableType(t.getType())) {
                 case SQL:
                 case SEMI:
@@ -436,20 +440,20 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         return tables;
     }
 
-    private MappingVo convertMapping2Vo(Mapping mapping) {
+    private MappingVO convertMapping2Vo(Mapping mapping) {
         String model = mapping.getModel();
         Assert.notNull(mapping, "Mapping can not be null.");
 
         // 元信息
         Meta meta = profileComponent.getMeta(mapping.getMetaId());
         Assert.notNull(meta, "Meta can not be null.");
-        MetaVo metaVo = new MetaVo(ModelEnum.getModelEnum(model).getName(), mapping.getName());
+        MetaVO metaVo = new MetaVO(ModelEnum.getModelEnum(model).getName(), mapping.getName());
         BeanUtils.copyProperties(meta, metaVo);
         metaVo.setCounting(dispatchTaskService.isRunning(mapping.getId()));
 
         Connector s = profileComponent.getConnector(mapping.getSourceConnectorId());
         Connector t = profileComponent.getConnector(mapping.getTargetConnectorId());
-        MappingVo vo = new MappingVo(s, t, metaVo);
+        MappingVO vo = new MappingVO(s, t, metaVo);
         BeanUtils.copyProperties(mapping, vo);
         return vo;
     }
@@ -479,14 +483,14 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
             return;
         }
         // 优化匹配性能
-        Map<String, Table> targetTableMap = targetTables.stream().collect(Collectors.toMap(table -> table.getName().toUpperCase(), table -> table));
+        Map<String, Table> targetTableMap = targetTables.stream().collect(Collectors.toMap(table->table.getName().toUpperCase(), table->table));
 
         // 匹配相似表
         for (Table sourceTable : sourceTables) {
             if (StringUtil.isBlank(sourceTable.getName())) {
                 continue;
             }
-            targetTableMap.computeIfPresent(sourceTable.getName().toUpperCase(), (k, targetTable) -> {
+            targetTableMap.computeIfPresent(sourceTable.getName().toUpperCase(), (k, targetTable)-> {
                 // 仅支持表类型
                 if (TableTypeEnum.isTable(targetTable.getType())) {
                     addTableGroup(mapping.getId(), sourceTable.getName(), targetTable.getName(), StringUtil.EMPTY);
@@ -559,7 +563,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                 }
             }
             tableGroupService.add(params);
-        } catch (RepeatedTableGroupException e) {
+        } catch (RepeatedTableGroupException | SdkException e) {
             logger.error(e.getMessage(), e);
         }
     }

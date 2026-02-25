@@ -6,6 +6,7 @@ package org.dbsyncer.web.controller.system;
 import org.dbsyncer.biz.SystemConfigService;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.web.controller.BaseController;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+
 import java.util.Map;
 
 @Controller
@@ -51,6 +53,20 @@ public class SystemController extends BaseController {
     public RestResult generateRSA(HttpServletRequest request, @RequestParam(value = "keyLength") int keyLength) {
         try {
             return RestResult.restSuccess(systemConfigService.createRSAConfig(keyLength));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    /**
+     * 生成 API 密钥（OpenAPI 登录凭证）
+     */
+    @PostMapping("/generateApiSecret")
+    @ResponseBody
+    public RestResult generateApiSecret(HttpServletRequest request) {
+        try {
+            return RestResult.restSuccess(systemConfigService.generateApiSecret());
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

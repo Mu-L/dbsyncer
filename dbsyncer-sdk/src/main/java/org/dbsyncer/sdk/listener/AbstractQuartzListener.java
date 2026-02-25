@@ -15,6 +15,7 @@ import org.dbsyncer.sdk.model.Point;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.TableGroupQuartzCommand;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,12 +54,8 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
 
     /**
      * 获取增量参数
-     *
-     * @param command
-     * @param index
-     * @return
      */
-    protected abstract Point checkLastPoint(Map<String, String> command, int index);
+    protected abstract Point checkLastPoint(TableGroupQuartzCommand command, int index);
 
     @Override
     public void start() {
@@ -115,9 +112,8 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
     private void flushPoint() {
         if (CollectionUtils.isEmpty(snapshot)) {
             for (int i = 0; i < commands.size(); i++) {
-                final Map<String, String> command = commands.get(i).getCommand();
                 // 更新最新增量点
-                Point point = checkLastPoint(command, i);
+                Point point = checkLastPoint(commands.get(i), i);
                 if (!CollectionUtils.isEmpty(point.getPosition())) {
                     snapshot.putAll(point.getPosition());
                 }
@@ -127,12 +123,10 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
     }
 
     private void execute(TableGroupQuartzCommand cmd, int index) {
-        final Map<String, String> command = cmd.getCommand();
-        final List<String> primaryKeys = cmd.getPrimaryKeys();
         final Table table = cmd.getTable();
 
         // 检查增量点
-        Point point = checkLastPoint(command, index);
+        Point point = checkLastPoint(cmd, index);
         int pageIndex = 1;
         Object[] cursors = PrimaryKeyUtil.getLastCursors((String) snapshot.get(index + CURSOR));
 
@@ -140,13 +134,14 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
         context.setSourceConnectorInstance(connectorInstance);
         context.setTargetConnectorInstance(targetConnectorInstance);
         context.setSourceTable(table);
-        context.setSourceTableName(table.getName());
-        context.setTargetTableName(cmd.getTargetTable().getName());
+        context.setTargetTable(cmd.getTargetTable());
         context.setCommand(point.getCommand());
-        context.setSupportedCursor(StringUtil.isNotBlank(command.get(ConnectorConstant.OPERTION_QUERY_CURSOR)));
+        context.setSupportedCursor(isSupportedCursor(cmd));
         context.setPageSize(READ_NUM);
         context.setPlugin(cmd.getPlugin());
         context.setPluginExtInfo(cmd.getPluginExtInfo());
+        context.setRsaManager(rsaManager);
+        context.setRsaConfig(rsaConfig);
         changeEventBefore(context);
         while (running) {
             context.setArgs(point.getArgs());
@@ -158,7 +153,7 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
                 cursors = new Object[0];
                 break;
             }
-            logger.info("{}[{}], data=[{}]", mappingName, context.getSourceTableName(), data.size());
+            logger.info("{}[{}], data=[{}]", mappingName, context.getSourceTable().getName(), data.size());
             for (Map<String, Object> row : data) {
                 if (customEvent) {
                     trySendEvent(new ScanChangedEvent(table.getName(), event, cmd.getChangedRow(row)));
@@ -179,12 +174,14 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
                 }
             }
             // 更新记录点
-            cursors = PrimaryKeyUtil.getLastCursors(data, primaryKeys);
+            if (context.isSupportedCursor()) {
+                cursors = getLastCursors(cmd, data);
+            }
             point.refresh();
 
-            if (data.size() < READ_NUM) {
-                cursors = new Object[0];
-                break;
+            // 及时清理对象
+            if (!CollectionUtils.isEmpty(data)) {
+                data.clear();
             }
         }
 
@@ -195,7 +192,15 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
         if (context.isSupportedCursor() && cursors != null && cursors.length > 0) {
             snapshot.put(index + CURSOR, StringUtil.join(cursors, ","));
         }
+    }
 
+    protected boolean isSupportedCursor(TableGroupQuartzCommand cmd) {
+        final Map<String, String> command = cmd.getCommand();
+        return StringUtil.isNotBlank(command.get(ConnectorConstant.OPERTION_QUERY_CURSOR));
+    }
+
+    protected Object[] getLastCursors(TableGroupQuartzCommand cmd, List<Map> data) {
+        return PrimaryKeyUtil.getLastCursors(data, cmd.getPrimaryKeys());
     }
 
     private void trySendEvent(ChangedEvent event) {
@@ -218,8 +223,11 @@ public abstract class AbstractQuartzListener extends AbstractListener implements
         this.mappingName = mappingName;
     }
 
+    public List<TableGroupQuartzCommand> getCommands() {
+        return commands;
+    }
+
     public void setCommands(List<TableGroupQuartzCommand> commands) {
         this.commands = commands;
     }
-
 }

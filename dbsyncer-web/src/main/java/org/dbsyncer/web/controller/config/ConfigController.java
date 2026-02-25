@@ -1,18 +1,20 @@
 package org.dbsyncer.web.controller.config;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.dbsyncer.biz.SystemConfigService;
 import org.dbsyncer.biz.vo.RestResult;
+import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.model.VersionInfo;
+import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.manager.impl.PreloadTemplate;
 import org.dbsyncer.parser.CacheService;
-import org.dbsyncer.common.config.AppConfig;
-import org.dbsyncer.storage.impl.SnowflakeIdWorker;
-import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
+import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.dbsyncer.web.Version;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
@@ -25,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -65,17 +68,17 @@ public class ConfigController {
     @ResponseBody
     public RestResult upload(MultipartFile[] files) {
         try {
-            if (files != null && files.length > 0) {
-                for (int i = 0; i < files.length; i++) {
-                    if (files[i] == null) {
+            if (files != null) {
+                for (MultipartFile file : files) {
+                    if (file == null) {
                         continue;
                     }
-                    String filename = files[i].getOriginalFilename();
+                    String filename = file.getOriginalFilename();
                     systemConfigService.checkFileSuffix(filename);
                     String tmpdir = System.getProperty("java.io.tmpdir");
                     File dest = new File(tmpdir + filename);
                     FileUtils.deleteQuietly(dest);
-                    FileUtils.copyInputStreamToFile(files[i].getInputStream(), dest);
+                    FileUtils.copyInputStreamToFile(file.getInputStream(), dest);
                     systemConfigService.refreshConfig(dest);
                     String msg = String.format("导入配置文件%s", filename);
                     logger.info(msg);
@@ -123,5 +126,4 @@ public class ConfigController {
         map.putAll(cacheService.getAll());
         return map;
     }
-
 }

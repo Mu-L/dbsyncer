@@ -3,10 +3,10 @@
  */
 package org.dbsyncer.parser.model;
 
-import org.dbsyncer.common.model.AppCredentialConfig;
+import org.dbsyncer.common.model.ApiKeyConfig;
 import org.dbsyncer.common.model.IpWhitelistConfig;
 import org.dbsyncer.common.model.JwtSecretConfig;
-import org.dbsyncer.common.model.RSAConfig;
+import org.dbsyncer.common.model.RsaConfig;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 
 /**
@@ -73,14 +73,14 @@ public class SystemConfig extends ConfigModel {
     private boolean enablePrintTraceInfo;
 
     /**
-     * 是否开启RSA配置
+     * 是否开放API
      */
-    private boolean enableRsaConfig;
+    private boolean enableOpenAPI;
 
     /**
      * RSA配置
      */
-    private RSAConfig rsaConfig;
+    private RsaConfig rsaConfig;
 
     /**
      * JWT密钥配置
@@ -88,9 +88,9 @@ public class SystemConfig extends ConfigModel {
     private JwtSecretConfig jwtSecretConfig;
 
     /**
-     * 业务系统凭证配置
+     * API密钥配置（客户端凭证）
      */
-    private AppCredentialConfig appCredentialConfig;
+    private ApiKeyConfig apiKeyConfig;
 
     /**
      * IP白名单配置
@@ -177,19 +177,19 @@ public class SystemConfig extends ConfigModel {
         this.enablePrintTraceInfo = enablePrintTraceInfo;
     }
 
-    public boolean isEnableRsaConfig() {
-        return enableRsaConfig;
+    public boolean isEnableOpenAPI() {
+        return enableOpenAPI;
     }
 
-    public void setEnableRsaConfig(boolean enableRsaConfig) {
-        this.enableRsaConfig = enableRsaConfig;
+    public void setEnableOpenAPI(boolean enableOpenAPI) {
+        this.enableOpenAPI = enableOpenAPI;
     }
 
-    public RSAConfig getRsaConfig() {
+    public RsaConfig getRsaConfig() {
         return rsaConfig;
     }
 
-    public void setRsaConfig(RSAConfig rsaConfig) {
+    public void setRsaConfig(RsaConfig rsaConfig) {
         this.rsaConfig = rsaConfig;
     }
 
@@ -201,12 +201,12 @@ public class SystemConfig extends ConfigModel {
         this.jwtSecretConfig = jwtSecretConfig;
     }
 
-    public AppCredentialConfig getAppCredentialConfig() {
-        return appCredentialConfig;
+    public ApiKeyConfig getApiKeyConfig() {
+        return apiKeyConfig;
     }
 
-    public void setAppCredentialConfig(AppCredentialConfig appCredentialConfig) {
-        this.appCredentialConfig = appCredentialConfig;
+    public void setApiKeyConfig(ApiKeyConfig apiKeyConfig) {
+        this.apiKeyConfig = apiKeyConfig;
     }
 
     public IpWhitelistConfig getIpWhitelistConfig() {

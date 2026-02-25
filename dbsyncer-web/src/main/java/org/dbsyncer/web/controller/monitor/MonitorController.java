@@ -14,9 +14,9 @@ import org.dbsyncer.biz.model.MetricResponse;
 import org.dbsyncer.biz.model.Sample;
 import org.dbsyncer.biz.vo.CpuVO;
 import org.dbsyncer.biz.vo.DiskSpaceVO;
-import org.dbsyncer.biz.vo.HistoryStackVo;
+import org.dbsyncer.biz.vo.HistoryStackVO;
 import org.dbsyncer.biz.vo.MemoryVO;
-import org.dbsyncer.biz.vo.MetaVo;
+import org.dbsyncer.biz.vo.MetaVO;
 import org.dbsyncer.biz.vo.RestResult;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.DateFormatUtil;
@@ -26,6 +26,7 @@ import org.dbsyncer.web.controller.BaseController;
 import org.dbsyncer.web.controller.monitor.impl.CpuValueFormatter;
 import org.dbsyncer.web.controller.monitor.impl.GBValueFormatter;
 import org.dbsyncer.web.controller.monitor.impl.MemoryValueFormatter;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.actuate.health.Health;
@@ -40,12 +41,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
+import oshi.hardware.GlobalMemory;
+
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
 import oshi.hardware.GlobalMemory;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -112,7 +119,7 @@ public class MonitorController extends BaseController {
 
     @GetMapping("/page/retry")
     public String page(ModelMap model, String metaId, String messageId) {
-        MetaVo metaVo = monitorService.getMetaVo(metaId);
+        MetaVO metaVo = monitorService.getMetaVo(metaId);
         model.put("meta", metaVo);
         model.put("mapping", mappingService.getMapping(metaVo.getMappingId()));
         model.put("message", dataSyncService.getMessageVo(metaId, messageId));
@@ -202,8 +209,8 @@ public class MonitorController extends BaseController {
     @GetMapping("/metric")
     public RestResult metric() {
         try {
-            AppReportMetric reportMetric = monitorService.queryAppMetric(Stream.of(MetricEnum.THREADS_LIVE, MetricEnum.THREADS_PEAK)
-                    .map(m -> getMetricResponse(m.getCode())).collect(Collectors.toList()));
+            AppReportMetric reportMetric = monitorService
+                    .queryAppMetric(Stream.of(MetricEnum.THREADS_LIVE, MetricEnum.THREADS_PEAK).map(m->getMetricResponse(m.getCode())).collect(Collectors.toList()));
             reportMetric.setCpu(cpu);
             reportMetric.setMemory(memory);
             reportMetric.setDisk(disk);
@@ -242,14 +249,10 @@ public class MonitorController extends BaseController {
         // 采集瞬时数据
         long[] ticks = processor.getSystemCpuLoadTicks();
         if (prevTicks != null) {
-            long user = ticks[CentralProcessor.TickType.USER.getIndex()] -
-                    prevTicks[CentralProcessor.TickType.USER.getIndex()];
-            long nice = ticks[CentralProcessor.TickType.NICE.getIndex()] -
-                    prevTicks[CentralProcessor.TickType.NICE.getIndex()];
-            long system = ticks[CentralProcessor.TickType.SYSTEM.getIndex()] -
-                    prevTicks[CentralProcessor.TickType.SYSTEM.getIndex()];
-            long idle = ticks[CentralProcessor.TickType.IDLE.getIndex()] -
-                    prevTicks[CentralProcessor.TickType.IDLE.getIndex()];
+            long user = ticks[CentralProcessor.TickType.USER.getIndex()] - prevTicks[CentralProcessor.TickType.USER.getIndex()];
+            long nice = ticks[CentralProcessor.TickType.NICE.getIndex()] - prevTicks[CentralProcessor.TickType.NICE.getIndex()];
+            long system = ticks[CentralProcessor.TickType.SYSTEM.getIndex()] - prevTicks[CentralProcessor.TickType.SYSTEM.getIndex()];
+            long idle = ticks[CentralProcessor.TickType.IDLE.getIndex()] - prevTicks[CentralProcessor.TickType.IDLE.getIndex()];
             long total = user + nice + system + idle;
 
             // 防止除零错误：如果 total 为 0，说明 CPU tick 没有变化，使用默认值 0
@@ -259,23 +262,16 @@ public class MonitorController extends BaseController {
                 cpu.setTotalPercent(BigDecimal.ZERO);
             } else {
                 // 用户态CPU使用率（user + nice）
-                BigDecimal userCpuPercent = BigDecimal.valueOf(user + nice)
-                        .divide(BigDecimal.valueOf(total), 6, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100))
+                BigDecimal userCpuPercent = BigDecimal.valueOf(user + nice).divide(BigDecimal.valueOf(total), 6, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
                         .setScale(2, RoundingMode.HALF_UP);
                 cpu.setUserPercent(userCpuPercent);
 
                 // 系统态CPU使用率
-                BigDecimal systemCpuPercent = BigDecimal.valueOf(system)
-                        .divide(BigDecimal.valueOf(total), 6, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100))
-                        .setScale(2, RoundingMode.HALF_UP);
+                BigDecimal systemCpuPercent = BigDecimal.valueOf(system).divide(BigDecimal.valueOf(total), 6, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
                 cpu.setSysPercent(systemCpuPercent);
 
                 // 总CPU使用率（非空闲时间）
-                BigDecimal totalCpuPercent = BigDecimal.valueOf(total - idle)
-                        .divide(BigDecimal.valueOf(total), 6, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100))
+                BigDecimal totalCpuPercent = BigDecimal.valueOf(total - idle).divide(BigDecimal.valueOf(total), 6, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
                         .setScale(2, RoundingMode.HALF_UP);
                 cpu.setTotalPercent(totalCpuPercent);
             }
@@ -322,9 +318,7 @@ public class MonitorController extends BaseController {
         if (used == null) {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
-        BigDecimal percent = used
-                .divide(total, 4, RoundingMode.HALF_UP)
-                .multiply(new BigDecimal("100"));
+        BigDecimal percent = used.divide(total, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100"));
         return percent.setScale(2, RoundingMode.HALF_UP);
     }
 
@@ -343,13 +337,13 @@ public class MonitorController extends BaseController {
         metricResponse.setMetricName(metricEnum.getMetricName());
         if (!CollectionUtils.isEmpty(metric.getMeasurements())) {
             List<Sample> measurements = new ArrayList<>();
-            metric.getMeasurements().forEach(s -> measurements.add(new Sample(s.getStatistic().getTagValueRepresentation(), s.getValue())));
+            metric.getMeasurements().forEach(s->measurements.add(new Sample(s.getStatistic().getTagValueRepresentation(), s.getValue())));
             metricResponse.setMeasurements(measurements);
         }
         return metricResponse;
     }
 
-    private void collectStackMetric(MetricEnum metricEnum, HistoryStackVo stackVo, ValueFormatter<Object, Object> formatter) {
+    private void collectStackMetric(MetricEnum metricEnum, HistoryStackVO stackVo, ValueFormatter<Object, Object> formatter) {
         MetricResponse metricResponse = getMetricResponse(metricEnum.getCode());
         List<Sample> measurements = metricResponse.getMeasurements();
         if (!CollectionUtils.isEmpty(measurements)) {

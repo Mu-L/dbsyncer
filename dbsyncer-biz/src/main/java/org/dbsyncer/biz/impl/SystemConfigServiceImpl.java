@@ -7,19 +7,19 @@ import org.apache.commons.io.FileUtils;
 import org.dbsyncer.biz.SystemConfigService;
 import org.dbsyncer.biz.UserConfigService;
 import org.dbsyncer.biz.checker.Checker;
-import org.dbsyncer.biz.vo.SystemConfigVo;
+import org.dbsyncer.biz.vo.SystemConfigVO;
 import org.dbsyncer.common.config.AppConfig;
-import org.dbsyncer.common.model.RSAConfig;
+import org.dbsyncer.common.enums.FileSuffixEnum;
+import org.dbsyncer.common.model.RsaVersion;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.RSAUtil;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.parser.ProfileComponent;
+import org.dbsyncer.manager.impl.PreloadTemplate;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
+import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
-import org.dbsyncer.manager.impl.PreloadTemplate;
-import org.dbsyncer.common.enums.FileSuffixEnum;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -28,7 +28,9 @@ import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,8 +70,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     @Override
-    public SystemConfigVo getSystemConfigVo() {
-        SystemConfigVo systemConfigVo = new SystemConfigVo();
+    public SystemConfigVO getSystemConfigVo() {
+        SystemConfigVO systemConfigVo = new SystemConfigVO();
         BeanUtils.copyProperties(getSystemConfig(), systemConfigVo);
         systemConfigVo.setWatermark(getWatermark(systemConfigVo));
         return systemConfigVo;
@@ -134,8 +136,15 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     @Override
-    public RSAConfig createRSAConfig(int keyLength) {
+    public RsaVersion createRSAConfig(int keyLength) {
         Assert.isTrue(keyLength >= 1024 && keyLength <= 8192, "密钥长度支持的范围[1024-8192]");
         return RSAUtil.createKeys(keyLength);
+    }
+
+    @Override
+    public String generateApiSecret() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getEncoder().encodeToString(bytes);
     }
 }

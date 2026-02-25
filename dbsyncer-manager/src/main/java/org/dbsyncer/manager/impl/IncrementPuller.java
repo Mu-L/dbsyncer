@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.manager.impl;
 
+import org.dbsyncer.common.rsa.RsaManager;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
 import org.dbsyncer.connector.base.ConnectorFactory;
@@ -71,6 +72,9 @@ public final class IncrementPuller extends AbstractPuller implements Application
     private ScheduledTaskService scheduledTaskService;
 
     @Resource
+    private RsaManager rsaManager;
+
+    @Resource
     private ConnectorFactory connectorFactory;
 
     @Resource
@@ -105,9 +109,9 @@ public final class IncrementPuller extends AbstractPuller implements Application
         Meta meta = profileComponent.getMeta(metaId);
         Assert.notNull(meta, "Meta不能为空.");
 
-        Thread worker = new Thread(() -> {
+        Thread worker = new Thread(()-> {
             try {
-                map.computeIfAbsent(metaId, k -> {
+                map.computeIfAbsent(metaId, k-> {
                     logger.info("开始增量同步：{}, {}", metaId, mapping.getName());
                     long now = Instant.now().toEpochMilli();
                     meta.setBeginTime(now);
@@ -129,7 +133,7 @@ public final class IncrementPuller extends AbstractPuller implements Application
 
     @Override
     public void close(String metaId) {
-        map.compute(metaId, (k, listener) -> {
+        map.compute(metaId, (k, listener)-> {
             if (listener != null) {
                 listener.close();
             }
@@ -169,7 +173,7 @@ public final class IncrementPuller extends AbstractPuller implements Application
         // 默认定时抽取
         if (ListenerTypeEnum.isTiming(listenerType) && listener instanceof AbstractQuartzListener) {
             AbstractQuartzListener quartzListener = (AbstractQuartzListener) listener;
-            List<TableGroupQuartzCommand> quartzCommands = list.stream().map(t -> {
+            List<TableGroupQuartzCommand> quartzCommands = list.stream().map(t-> {
                 final TableGroup group = PickerUtil.mergeTableGroupConfig(mapping, t);
                 final Picker picker = new Picker(group);
                 List<Field> fields = picker.getSourceFields();
@@ -185,7 +189,7 @@ public final class IncrementPuller extends AbstractPuller implements Application
             Set<String> filterTable = new HashSet<>();
             List<Table> sourceTable = new ArrayList<>();
             List<Table> customTable = new ArrayList<>();
-            list.forEach(t -> addSourceTable(sourceTable, customTable, filterTable, t.getSourceTable()));
+            list.forEach(t->addSourceTable(sourceTable, customTable, filterTable, t.getSourceTable()));
             abstractListener.setDatabase(mapping.getSourceDatabase());
             abstractListener.setSchema(mapping.getSourceSchema());
             abstractListener.setConnectorService(connectorFactory.getConnectorService(connectorConfig.getConnectorType()));
@@ -194,6 +198,7 @@ public final class IncrementPuller extends AbstractPuller implements Application
             abstractListener.setConnectorInstance(connectorFactory.connect(sourceInstanceId));
             abstractListener.setTargetConnectorInstance(connectorFactory.connect(targetInstanceId));
             abstractListener.setScheduledTaskService(scheduledTaskService);
+            setRsaConfig(abstractListener);
             abstractListener.setConnectorConfig(connectorConfig);
             abstractListener.setListenerConfig(listenerConfig);
             abstractListener.setFilterTable(filterTable);
@@ -205,6 +210,13 @@ public final class IncrementPuller extends AbstractPuller implements Application
 
         listener.init();
         return listener;
+    }
+
+    private void setRsaConfig(AbstractListener listener) {
+        if (profileComponent.getSystemConfig().isEnableOpenAPI()) {
+            listener.setRsaManager(rsaManager);
+            listener.setRsaConfig(profileComponent.getSystemConfig().getRsaConfig());
+        }
     }
 
     private void addSourceTable(List<Table> sourceTable, List<Table> customTable, Set<String> filterTable, Table table) {

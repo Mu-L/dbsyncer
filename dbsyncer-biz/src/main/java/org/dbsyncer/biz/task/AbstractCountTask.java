@@ -5,6 +5,7 @@ package org.dbsyncer.biz.task;
 
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.common.dispatch.AbstractDispatchTask;
+import org.dbsyncer.common.rsa.RsaManager;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.parser.ParserComponent;
 import org.dbsyncer.parser.ProfileComponent;
@@ -13,6 +14,7 @@ import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.util.ConnectorInstanceUtil;
 import org.dbsyncer.parser.util.PickerUtil;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
+import org.dbsyncer.sdk.connector.DefaultMetaContext;
 import org.dbsyncer.sdk.enums.ModelEnum;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.spi.ConnectorService;
@@ -44,6 +46,8 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
 
     protected ConnectorFactory connectorFactory;
 
+    private RsaManager rsaManager;
+
     public void setMappingId(String mappingId) {
         this.mappingId = mappingId;
     }
@@ -64,6 +68,10 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
         this.connectorFactory = connectorFactory;
     }
 
+    public void setRsaManager(RsaManager rsaManager) {
+        this.rsaManager = rsaManager;
+    }
+
     protected void updateTableGroupCount(Mapping mapping, TableGroup tableGroup) {
         long now = Instant.now().toEpochMilli();
         TableGroup group = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
@@ -74,7 +82,14 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
         ConnectorInstance connectorInstance = connectorFactory.connect(instanceId);
         Assert.notNull(command, "command can not null");
         ConnectorService connectorService = connectorFactory.getConnectorService(config);
-        long count = connectorService.getCount(connectorInstance, command);
+
+        DefaultMetaContext metaContext = new DefaultMetaContext();
+        metaContext.setCommand(command);
+        metaContext.setSourceTable(group.getSourceTable());
+        metaContext.setSourceConnectorInstance(connectorInstance);
+        setRsaConfig(metaContext);
+
+        long count = connectorService.getCount(connectorInstance, metaContext);
         tableGroup.getSourceTable().setCount(count);
         profileComponent.editConfigModel(tableGroup);
         logger.info("{}表{}, 总数:{}, {}ms", mapping.getName(), tableGroup.getSourceTable().getName(), count, (Instant.now().toEpochMilli() - now));
@@ -82,5 +97,12 @@ public abstract class AbstractCountTask extends AbstractDispatchTask {
 
     protected boolean shouldStop(Mapping mapping) {
         return !isRunning() || !ModelEnum.isFull(mapping.getModel());
+    }
+
+    private void setRsaConfig(DefaultMetaContext context) {
+        if (profileComponent.getSystemConfig().isEnableOpenAPI()) {
+            context.setRsaManager(rsaManager);
+            context.setRsaConfig(profileComponent.getSystemConfig().getRsaConfig());
+        }
     }
 }

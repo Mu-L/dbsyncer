@@ -14,6 +14,10 @@ public enum SafeInfoEnum {
      */
     PASSWORD("password"),
     /**
+     * API密钥
+     */
+    API_SECRET("apiSecret"),
+    /**
      * RSA私钥
      */
     RSA_PRIVATE_KEY("rsaPrivateKey"),
@@ -31,5 +35,4 @@ public enum SafeInfoEnum {
     public String getCode() {
         return code;
     }
-
 }

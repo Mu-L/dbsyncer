@@ -6,8 +6,11 @@ package org.dbsyncer.biz.impl;
 import org.dbsyncer.biz.enums.BufferActuatorMetricEnum;
 import org.dbsyncer.biz.enums.StatisticEnum;
 import org.dbsyncer.biz.enums.ThreadPoolMetricEnum;
-import org.dbsyncer.biz.model.*;
-import org.dbsyncer.biz.vo.HistoryStackVo;
+import org.dbsyncer.biz.model.AppReportMetric;
+import org.dbsyncer.biz.model.DashboardMetric;
+import org.dbsyncer.biz.model.MetricResponse;
+import org.dbsyncer.biz.model.MetricResponseInfo;
+import org.dbsyncer.biz.model.Sample;
 import org.dbsyncer.biz.vo.SyncTrendStackVO;
 import org.dbsyncer.biz.vo.TpsVO;
 import org.dbsyncer.common.metric.Bucket;
@@ -35,6 +38,7 @@ import org.dbsyncer.sdk.filter.impl.IntFilter;
 import org.dbsyncer.sdk.filter.impl.LongFilter;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -42,11 +46,17 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -114,7 +124,7 @@ public class MetricReporter implements ScheduledTaskJob {
             List<MetricResponseInfo> tableList = new ArrayList<>();
             // 默认查所有表
             if (StringUtil.isBlank(searchMetaId)) {
-                bufferActuatorRouter.getRouter().forEach((metaId, group) -> getMetricResponseInfo(metaId, group, searchKey, tableList));
+                bufferActuatorRouter.getRouter().forEach((metaId, group)->getMetricResponseInfo(metaId, group, searchKey, tableList));
             } else {
                 // 查指定驱动表
                 Map<String, TableGroupBufferActuator> group = bufferActuatorRouter.getRouter().get(searchMetaId);
@@ -124,10 +134,8 @@ public class MetricReporter implements ScheduledTaskJob {
             }
             if (!CollectionUtils.isEmpty(tableList)) {
                 int offset = (pageNum * pageSize) - pageSize;
-                paging.setData(tableList.stream()
-                        .sorted(Comparator.comparing(MetricResponseInfo::getQueueUp).reversed())
-                        .map(MetricResponseInfo::getResponse)
-                        .skip(offset).limit(pageSize).collect(Collectors.toList()));
+                paging.setData(tableList.stream().sorted(Comparator.comparing(MetricResponseInfo::getQueueUp).reversed()).map(MetricResponseInfo::getResponse).skip(offset).limit(pageSize)
+                        .collect(Collectors.toList()));
                 paging.setTotal(tableList.size());
             }
         }
@@ -138,7 +146,7 @@ public class MetricReporter implements ScheduledTaskJob {
         Meta meta = profileComponent.getMeta(metaId);
         Mapping mapping = profileComponent.getMapping(meta.getMappingId());
         String tableGroupCode = BufferActuatorMetricEnum.TABLE_GROUP.getCode();
-        group.forEach((k, actuator) -> {
+        group.forEach((k, actuator)-> {
             if (StringUtil.isNotBlank(searchKey)) {
                 if (StringUtil.contains(actuator.getTableName(), searchKey)) {
                     tableList.add(collect(actuator, tableGroupCode, mapping.getName(), actuator.getTableName()));
@@ -199,7 +207,7 @@ public class MetricReporter implements ScheduledTaskJob {
             AtomicLong fail = new AtomicLong();
             AtomicLong lastWeek = new AtomicLong();
             long lastWeekTime = Timestamp.valueOf(LocalDateTime.now().minusWeeks(1)).getTime();
-            metaAll.forEach(meta -> {
+            metaAll.forEach(meta-> {
                 // 统计上周任务总数
                 if (meta.getCreateTime() <= lastWeekTime) {
                     lastWeek.incrementAndGet();
@@ -276,10 +284,8 @@ public class MetricReporter implements ScheduledTaskJob {
         long oneMin = now.minus(1, ChronoUnit.MINUTES).toEpochMilli();
         // 只显示1分钟内
         Map<String, Long> map = new HashMap<>();
-        Stream.of(buckets).filter(b -> b.getTime() >= oneMin)
-                .sorted(Comparator.comparing(Bucket::getTime))
-                .forEach(b -> map.put(DateFormatUtil.timestampToString(new Timestamp(b.getTime()), DateFormatUtil.HH_MM_SS), b.get())
-                );
+        Stream.of(buckets).filter(b->b.getTime() >= oneMin).sorted(Comparator.comparing(Bucket::getTime))
+                .forEach(b->map.put(DateFormatUtil.timestampToString(new Timestamp(b.getTime()), DateFormatUtil.HH_MM_SS), b.get()));
         for (int i = 0; i < buckets.length; i++) {
             long milli = now.minus(buckets.length - i, ChronoUnit.SECONDS).toEpochMilli();
             String key = DateFormatUtil.timestampToString(new Timestamp(milli), DateFormatUtil.HH_MM_SS);
@@ -297,7 +303,7 @@ public class MetricReporter implements ScheduledTaskJob {
      * @return
      */
     private long getMappingSuccess(List<Meta> metaAll) {
-        return queryMappingMetricCount(metaAll, (query) -> query.addFilter(ConfigConstant.DATA_SUCCESS, StorageDataStatusEnum.SUCCESS.getValue()));
+        return queryMappingMetricCount(metaAll, (query)->query.addFilter(ConfigConstant.DATA_SUCCESS, StorageDataStatusEnum.SUCCESS.getValue()));
     }
 
     /**
@@ -307,7 +313,7 @@ public class MetricReporter implements ScheduledTaskJob {
      * @return
      */
     private long getMappingFail(List<Meta> metaAll) {
-        return queryMappingMetricCount(metaAll, (query) -> query.addFilter(ConfigConstant.DATA_SUCCESS, StorageDataStatusEnum.FAIL.getValue()));
+        return queryMappingMetricCount(metaAll, (query)->query.addFilter(ConfigConstant.DATA_SUCCESS, StorageDataStatusEnum.FAIL.getValue()));
     }
 
     /**
@@ -319,7 +325,7 @@ public class MetricReporter implements ScheduledTaskJob {
      * @return
      */
     private long getMappingDataCount(List<Meta> metaAll, long time, StorageDataStatusEnum status) {
-        return queryMappingMetricCount(metaAll, (query) -> {
+        return queryMappingMetricCount(metaAll, (query)-> {
             LongFilter filter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT, time);
             IntFilter success = new IntFilter(ConfigConstant.DATA_SUCCESS, status.getValue());
             query.setBooleanFilter(new BooleanFilter().add(filter).add(success));
@@ -333,7 +339,7 @@ public class MetricReporter implements ScheduledTaskJob {
      * @return
      */
     private long getMappingYesterdayAll(List<Meta> metaAll) {
-        return queryMappingMetricCount(metaAll, (query) -> {
+        return queryMappingMetricCount(metaAll, (query)-> {
             long yesterday = Timestamp.valueOf(LocalDateTime.now().minusDays(1)).getTime();
             LongFilter filter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT, yesterday);
             query.setBooleanFilter(new BooleanFilter().add(filter));
@@ -347,7 +353,7 @@ public class MetricReporter implements ScheduledTaskJob {
      * @return
      */
     private long getMappingInsert(List<Meta> metaAll) {
-        return queryMappingMetricCount(metaAll, (query) -> query.addFilter(ConfigConstant.DATA_EVENT, ConnectorConstant.OPERTION_INSERT));
+        return queryMappingMetricCount(metaAll, (query)->query.addFilter(ConfigConstant.DATA_EVENT, ConnectorConstant.OPERTION_INSERT));
     }
 
     /**
@@ -357,7 +363,7 @@ public class MetricReporter implements ScheduledTaskJob {
      * @return
      */
     private long getMappingUpdate(List<Meta> metaAll) {
-        return queryMappingMetricCount(metaAll, (query) -> query.addFilter(ConfigConstant.DATA_EVENT, ConnectorConstant.OPERTION_UPDATE));
+        return queryMappingMetricCount(metaAll, (query)->query.addFilter(ConfigConstant.DATA_EVENT, ConnectorConstant.OPERTION_UPDATE));
     }
 
     /**
@@ -367,7 +373,7 @@ public class MetricReporter implements ScheduledTaskJob {
      * @return
      */
     private long getMappingDelete(List<Meta> metaAll) {
-        return queryMappingMetricCount(metaAll, (query) -> query.addFilter(ConfigConstant.DATA_EVENT, ConnectorConstant.OPERTION_DELETE));
+        return queryMappingMetricCount(metaAll, (query)->query.addFilter(ConfigConstant.DATA_EVENT, ConnectorConstant.OPERTION_DELETE));
     }
 
     private long queryMappingMetricCount(List<Meta> metaAll, Consumer<Query> operation) {
@@ -377,7 +383,7 @@ public class MetricReporter implements ScheduledTaskJob {
             query.setQueryTotal(true);
             query.setType(StorageEnum.DATA);
             operation.accept(query);
-            metaAll.forEach(meta -> {
+            metaAll.forEach(meta-> {
                 query.setMetaId(meta.getId());
                 Paging paging = storageService.query(query);
                 total.getAndAdd(paging.getTotal());
@@ -391,11 +397,9 @@ public class MetricReporter implements ScheduledTaskJob {
         ThreadPoolTaskExecutor threadTask = (ThreadPoolTaskExecutor) bufferActuator.getExecutor();
         ThreadPoolExecutor pool = threadTask.getThreadPoolExecutor();
         info.setQueueUp(bufferActuator.getQueue().size());
-        String msg = "堆积" + StringUtil.COLON + info.getQueueUp() +
-                StringUtil.FORWARD_SLASH + bufferActuator.getQueueCapacity() + StringUtil.SPACE +
-                ThreadPoolMetricEnum.CORE_SIZE.getMetricName() + StringUtil.COLON + pool.getActiveCount() +
-                StringUtil.FORWARD_SLASH + pool.getMaximumPoolSize() + StringUtil.SPACE +
-                ThreadPoolMetricEnum.COMPLETED.getMetricName() + StringUtil.COLON + pool.getCompletedTaskCount();
+        String msg = "堆积" + StringUtil.COLON + info.getQueueUp() + StringUtil.FORWARD_SLASH + bufferActuator.getQueueCapacity() + StringUtil.SPACE + ThreadPoolMetricEnum.CORE_SIZE.getMetricName()
+                + StringUtil.COLON + pool.getActiveCount() + StringUtil.FORWARD_SLASH + pool.getMaximumPoolSize() + StringUtil.SPACE + ThreadPoolMetricEnum.COMPLETED.getMetricName() + StringUtil.COLON
+                + pool.getCompletedTaskCount();
         info.setResponse(new MetricResponse(code, group, metricName, Collections.singletonList(new Sample(StatisticEnum.COUNT.getTagValueRepresentation(), msg))));
         return info;
     }

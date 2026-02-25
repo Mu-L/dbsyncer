@@ -1,9 +1,14 @@
 package org.dbsyncer.sdk.plugin;
 
+import org.dbsyncer.common.model.RsaConfig;
+import org.dbsyncer.common.rsa.RsaManager;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Plugin;
+import org.dbsyncer.sdk.model.Table;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -14,6 +19,8 @@ import java.util.Map;
  * @date 2022/6/30 16:00
  */
 public abstract class AbstractPluginContext extends AbstractBaseContext implements PluginContext, Cloneable {
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
      * 是否终止任务
@@ -27,14 +34,9 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
     private ConnectorInstance targetConnectorInstance;
 
     /**
-     * 数据源表
+     * 获取目标表信息
      */
-    private String sourceTableName;
-
-    /**
-     * 目标源表
-     */
-    private String targetTableName;
+    private Table targetTable;
 
     /**
      * 同步事件（INSERT/UPDATE/DELETE）
@@ -83,6 +85,16 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
 
     private String traceId;
 
+    /**
+     * 获取RSA加密类
+     */
+    private RsaManager rsaManager;
+
+    /**
+     * 获取RSA配置
+     */
+    private RsaConfig rsaConfig;
+
     @Override
     public boolean isTerminated() {
         return terminated;
@@ -103,21 +115,24 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
     }
 
     @Override
-    public String getSourceTableName() {
-        return sourceTableName;
+    public Table getTargetTable() {
+        return targetTable;
     }
 
-    public void setSourceTableName(String sourceTableName) {
-        this.sourceTableName = sourceTableName;
+    public void setTargetTable(Table targetTable) {
+        this.targetTable = targetTable;
+    }
+
+    @Override
+    public String getSourceTableName() {
+        logger.warn("方法已过时，请尽快替换为getSourceTable().getName()");
+        return getSourceTable().getName();
     }
 
     @Override
     public String getTargetTableName() {
-        return targetTableName;
-    }
-
-    public void setTargetTableName(String targetTableName) {
-        this.targetTableName = targetTableName;
+        logger.warn("方法已过时，请尽快替换为getTargetTable().getName()");
+        return getTargetTable().getName();
     }
 
     @Override
@@ -214,5 +229,23 @@ public abstract class AbstractPluginContext extends AbstractBaseContext implemen
     @Override
     public Object clone() throws CloneNotSupportedException {
         return super.clone();
+    }
+
+    @Override
+    public RsaManager getRsaManager() {
+        return rsaManager;
+    }
+
+    public void setRsaManager(RsaManager rsaManager) {
+        this.rsaManager = rsaManager;
+    }
+
+    @Override
+    public RsaConfig getRsaConfig() {
+        return rsaConfig;
+    }
+
+    public void setRsaConfig(RsaConfig rsaConfig) {
+        this.rsaConfig = rsaConfig;
     }
 }

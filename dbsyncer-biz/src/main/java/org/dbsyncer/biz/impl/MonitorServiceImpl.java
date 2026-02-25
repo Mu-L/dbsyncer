@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.biz.impl;
 
-import org.apache.lucene.index.IndexableField;
 import org.dbsyncer.biz.DataSyncService;
 import org.dbsyncer.biz.MonitorService;
 import org.dbsyncer.biz.SystemConfigService;
@@ -12,15 +11,14 @@ import org.dbsyncer.biz.enums.MetricEnum;
 import org.dbsyncer.biz.metric.MetricDetailFormatter;
 import org.dbsyncer.biz.metric.MetricGroupProcessor;
 import org.dbsyncer.biz.metric.impl.DoubleRoundMetricDetailFormatter;
-import org.dbsyncer.biz.metric.impl.GCMetricDetailFormatter;
 import org.dbsyncer.biz.metric.impl.ValueMetricDetailFormatter;
 import org.dbsyncer.biz.model.AppReportMetric;
 import org.dbsyncer.biz.model.DashboardMetric;
 import org.dbsyncer.biz.model.MetricResponse;
-import org.dbsyncer.biz.vo.DataVo;
-import org.dbsyncer.biz.vo.LogVo;
-import org.dbsyncer.biz.vo.MetaVo;
-import org.dbsyncer.biz.vo.MetricResponseVo;
+import org.dbsyncer.biz.vo.DataVO;
+import org.dbsyncer.biz.vo.LogVO;
+import org.dbsyncer.biz.vo.MetaVO;
+import org.dbsyncer.biz.vo.MetricResponseVO;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.scheduled.ScheduledTaskJob;
 import org.dbsyncer.common.scheduled.ScheduledTaskService;
@@ -44,6 +42,9 @@ import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.filter.impl.LongFilter;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.enums.StorageDataStatusEnum;
+
+import org.apache.lucene.index.IndexableField;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -52,6 +53,7 @@ import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -107,8 +109,8 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         metricMap.putIfAbsent(BufferActuatorMetricEnum.STORAGE.getCode(), new ValueMetricDetailFormatter());
         metricMap.putIfAbsent(MetricEnum.THREADS_LIVE.getCode(), new DoubleRoundMetricDetailFormatter());
         metricMap.putIfAbsent(MetricEnum.THREADS_PEAK.getCode(), new DoubleRoundMetricDetailFormatter());
-//        metricMap.putIfAbsent(MetricEnum.GC_PAUSE.getCode(), new GCMetricDetailFormatter());
-        metricMap.putIfAbsent(MetricEnum.SYSTEM_ENV.getCode(), vo -> {
+        // metricMap.putIfAbsent(MetricEnum.GC_PAUSE.getCode(), new GCMetricDetailFormatter());
+        metricMap.putIfAbsent(MetricEnum.SYSTEM_ENV.getCode(), vo-> {
             // 操作系统
             String osName = System.getProperty("os.name");
             // 架构
@@ -123,16 +125,12 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
     }
 
     @Override
-    public List<MetaVo> getMetaAll() {
-        return profileComponent.getMetaAll()
-                .stream()
-                .map(this::convertMeta2Vo)
-                .sorted(Comparator.comparing(MetaVo::getUpdateTime).reversed())
-                .collect(Collectors.toList());
+    public List<MetaVO> getMetaAll() {
+        return profileComponent.getMetaAll().stream().map(this::convertMeta2Vo).sorted(Comparator.comparing(MetaVO::getUpdateTime).reversed()).collect(Collectors.toList());
     }
 
     @Override
-    public MetaVo getMetaVo(String metaId) {
+    public MetaVO getMetaVo(String metaId) {
         Meta meta = profileComponent.getMeta(metaId);
         Assert.notNull(meta, "The meta is null.");
 
@@ -155,10 +153,10 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
 
         Paging paging = queryData(getDefaultMetaId(id), pageNum, pageSize, error, status);
         List<Map> data = (List<Map>) paging.getData();
-        List<DataVo> list = new ArrayList<>();
+        List<DataVO> list = new ArrayList<>();
         for (Map row : data) {
             try {
-                DataVo dataVo = convert2Vo(row, DataVo.class);
+                DataVO dataVo = convert2Vo(row, DataVO.class);
                 Map binlogData = dataSyncService.getBinlogData(row, true);
                 dataVo.setJson(JsonUtil.objToJsonSafe(binlogData));
                 list.add(dataVo);
@@ -197,9 +195,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         query.setType(StorageEnum.LOG);
         Paging paging = storageService.query(query);
         List<Map> data = (List<Map>) paging.getData();
-        paging.setData(data.stream()
-                .map(m -> convert2Vo(m, LogVo.class))
-                .collect(Collectors.toList()));
+        paging.setData(data.stream().map(m->convert2Vo(m, LogVO.class)).collect(Collectors.toList()));
         return paging;
     }
 
@@ -254,7 +250,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         }
 
         StringBuilder content = new StringBuilder();
-        metaAll.forEach(meta -> {
+        metaAll.forEach(meta-> {
             // 统计运行中和失败数
             if (MetaEnum.isRunning(meta.getState()) && meta.getFail().get() > 0) {
                 writeMappingReport(meta, content);
@@ -287,7 +283,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         }
         Query query = new Query(pageNum, pageSize);
         Map<String, FieldResolver> fieldResolvers = new ConcurrentHashMap<>();
-        fieldResolvers.put(ConfigConstant.BINLOG_DATA, (FieldResolver<IndexableField>) field -> field.binaryValue().bytes);
+        fieldResolvers.put(ConfigConstant.BINLOG_DATA, (FieldResolver<IndexableField>) field->field.binaryValue().bytes);
         query.setFieldResolverMap(fieldResolvers);
 
         // 查询异常信息
@@ -304,7 +300,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
     }
 
     private void deleteExpiredData() {
-        List<MetaVo> metaAll = getMetaAll();
+        List<MetaVO> metaAll = getMetaAll();
         if (!CollectionUtils.isEmpty(metaAll)) {
             Query query = new Query();
             query.setType(StorageEnum.DATA);
@@ -312,7 +308,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
             long expiredTime = Timestamp.valueOf(LocalDateTime.now().minusDays(expireDataDays)).getTime();
             LongFilter expiredFilter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT, expiredTime);
             query.setBooleanFilter(new BooleanFilter().add(expiredFilter));
-            metaAll.forEach(metaVo -> {
+            metaAll.forEach(metaVo-> {
                 query.setMetaId(metaVo.getId());
                 storageService.delete(query);
             });
@@ -329,11 +325,11 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         storageService.delete(query);
     }
 
-    private MetaVo convertMeta2Vo(Meta meta) {
+    private MetaVO convertMeta2Vo(Meta meta) {
         Mapping mapping = profileComponent.getMapping(meta.getMappingId());
         Assert.notNull(mapping, String.format("驱动不存在. metaId:%s, mappingId:%s", meta.getId(), meta.getMappingId()));
         ModelEnum modelEnum = ModelEnum.getModelEnum(mapping.getModel());
-        MetaVo metaVo = new MetaVo(modelEnum.getName(), mapping.getName());
+        MetaVO metaVo = new MetaVO(modelEnum.getName(), mapping.getName());
         BeanUtils.copyProperties(meta, metaVo);
         return metaVo;
     }
@@ -344,7 +340,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
 
     private String getDefaultMetaId(String id) {
         if (StringUtil.isBlank(id)) {
-            List<MetaVo> list = getMetaAll();
+            List<MetaVO> list = getMetaAll();
             if (!CollectionUtils.isEmpty(list)) {
                 return list.get(0).getId();
             }
@@ -352,14 +348,14 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         return id;
     }
 
-    private List<MetricResponseVo> metricResponseToVo(Collection<MetricResponse> metrics) {
-        return metrics.stream().map(metric -> {
-            MetricResponseVo vo = new MetricResponseVo();
+    private List<MetricResponseVO> metricResponseToVo(Collection<MetricResponse> metrics) {
+        return metrics.stream().map(metric-> {
+            MetricResponseVO vo = new MetricResponseVO();
             vo.setCode(metric.getCode());
             vo.setGroup(metric.getGroup());
             vo.setMetricName(metric.getMetricName());
             vo.setMeasurements(metric.getMeasurements());
-            metricMap.computeIfPresent(vo.getCode(), (k, mdf) -> {
+            metricMap.computeIfPresent(vo.getCode(), (k, mdf)-> {
                 mdf.format(vo);
                 return mdf;
             });
