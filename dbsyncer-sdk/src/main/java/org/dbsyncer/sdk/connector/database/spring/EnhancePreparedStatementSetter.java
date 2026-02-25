@@ -1,12 +1,13 @@
 package org.dbsyncer.sdk.connector.database.spring;
 
-import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
-
-import org.jspecify.annotations.Nullable;
+import org.dbsyncer.sdk.connector.database.strategy.PreparedStatementSetterStrategy;
+import org.dbsyncer.sdk.model.Field;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
 
 /**
  * PreparedStatementSetter 增强实现
@@ -18,10 +19,10 @@ public class EnhancePreparedStatementSetter extends AbstractEnhancePreparedState
     private final Object[] args;
     private final int[] types;
 
-    public EnhancePreparedStatementSetter(AbstractDatabaseConnector connector, Object[] args, @Nullable int[] types) {
-        super(connector);
-        this.args = args;
-        this.types = types;
+    public EnhancePreparedStatementSetter(PreparedStatementSetterStrategy pss, List<Field> fields, Map row) {
+        super(pss);
+        this.args = getArgs(fields, row);
+        this.types = getJdbcTypes(fields, row);
     }
     @Override
     public void setValues(PreparedStatement ps) throws SQLException {

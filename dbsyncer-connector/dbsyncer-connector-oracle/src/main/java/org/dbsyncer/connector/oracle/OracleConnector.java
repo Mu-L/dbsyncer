@@ -55,7 +55,7 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public PreparedStatementSetterStrategy getPreparedStatementSetterStrategy() {
+    protected PreparedStatementSetterStrategy getPreparedStatementSetterStrategy() {
         return preparedStatementSetterStrategy;
     }
 

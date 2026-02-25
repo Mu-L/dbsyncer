@@ -1,10 +1,7 @@
 package org.dbsyncer.sdk.connector.database.strategy;
 
-import org.dbsyncer.sdk.SdkException;
-
-import org.jspecify.annotations.Nullable;
-
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 /**
  * 设置 PreparedStatement 参数的接口
@@ -19,5 +16,5 @@ public interface PreparedStatementSetterStrategy {
      * @param value    参数值
      * @param jdbcType jdbc类型，{@link java.sql.Types}
      */
-    void setValue(PreparedStatement ps, int index, Object value, @Nullable Integer jdbcType) throws SdkException;
+    void setValue(PreparedStatement ps, int index, Object value, Integer jdbcType) throws SQLException;
 }

@@ -35,17 +35,14 @@ import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.plugin.MetaContext;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.plugin.ReaderContext;
-import org.dbsyncer.sdk.schema.CustomData;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.DatabaseUtil;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
-
-import org.apache.commons.lang3.tuple.Pair;
-
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.jdbc.support.rowset.ResultSetWrappingSqlRowSet;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.jdbc.support.rowset.SqlRowSetMetaData;
@@ -56,7 +53,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -91,13 +87,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     @Override
     public Class<DatabaseConfig> getConfigClass() {
         return DatabaseConfig.class;
-    }
-
-    /**
-     * SQL语句参数设置策略
-     */
-    public PreparedStatementSetterStrategy getPreparedStatementSetterStrategy() {
-        return preparedStatementSetterStrategy;
     }
 
     @Override
@@ -178,6 +167,25 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             }
             return metaInfos;
         });
+    }
+
+    @Override
+    public Result writerDDL(DatabaseConnectorInstance connectorInstance, DDLConfig config) {
+        Result result = new Result();
+        try {
+            Assert.hasText(config.getSql(), "执行SQL语句不能为空.");
+            connectorInstance.execute(databaseTemplate-> {
+                // 执行ddl时, 带上dbs唯一标识码，防止双向同步导致死循环
+                databaseTemplate.execute(DatabaseConstant.DBS_UNIQUE_CODE.concat(config.getSql()));
+                return true;
+            });
+            Map<String, String> successMap = new HashMap<>();
+            successMap.put(ConfigConstant.BINLOG_DATA, config.getSql());
+            result.addSuccessData(Collections.singletonList(successMap));
+        } catch (Exception e) {
+            result.getError().append(String.format("执行ddl: %s, 异常：%s", config.getSql(), e.getMessage()));
+        }
+        return result;
     }
 
     private void getMetaInfoWithSQL(DatabaseTemplate databaseTemplate, List<MetaInfo> metaInfos, String catalog, String schema, Table t) throws SQLException {
@@ -332,9 +340,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                 try {
                     // 手动提交事务
                     connection.setAutoCommit(false);
-                    Pair<List<Object[]>, int[]> rowValues = extractBatchRowValues(fields, data);
-                    EnhanceBatchPreparedStatementSetter batchPreparedStatementSetter = new EnhanceBatchPreparedStatementSetter(this, rowValues.getKey(), rowValues.getValue());
-                    int[] r = databaseTemplate.batchUpdate(executeSql, batchPreparedStatementSetter);
+                    BatchPreparedStatementSetter pss = new EnhanceBatchPreparedStatementSetter(getPreparedStatementSetterStrategy(), fields, data);
+                    int[] r = databaseTemplate.batchUpdate(executeSql, pss);
                     connection.commit();
                     return r;
                 } catch (Exception e) {
@@ -370,9 +377,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     private void forceUpdate(DatabaseConnectorInstance connectorInstance, PluginContext context, String executeSql, List<Field> fields, String event, List<Map> data, Result result) {
         data.forEach(row-> {
             try {
-                Pair<Object[], int[]> rowValues = extractRowValues(fields, row, true);
-                EnhancePreparedStatementSetter preparedStatementSetter = new EnhancePreparedStatementSetter(this, rowValues.getKey(), rowValues.getValue());
-                int execute = connectorInstance.execute(databaseTemplate->databaseTemplate.update(executeSql, preparedStatementSetter));
+                PreparedStatementSetter pss = new EnhancePreparedStatementSetter(getPreparedStatementSetterStrategy(), fields, row);
+                int execute = connectorInstance.execute(databaseTemplate->databaseTemplate.update(executeSql, pss));
                 if (execute == 0) {
                     throw new SdkException("数据不存在或执行异常");
                 }
@@ -384,59 +390,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
                 printTraceLog(context, event, row, Boolean.FALSE, e.getMessage());
             }
         });
-    }
-
-    /**
-     * 批量处理行数据
-     *
-     * @param fields 字段
-     * @param row    数据行
-     * @return 参数
-     */
-    private Pair<Object[], @Nullable int[]> extractRowValues(List<Field> fields, Map row, boolean withType) {
-        List<Integer> types = null;
-        if (withType) {
-            types = new ArrayList<>();
-        }
-        List<Object> args = new ArrayList<>();
-        for (Field f : fields) {
-            Object val = row.get(f.getName());
-            if (val instanceof CustomData) {
-                CustomData cd = (CustomData) val;
-                Collection<?> extendedData = cd.apply();
-                args.addAll(extendedData);
-                if (withType) {
-                    types.addAll(Collections.nCopies(extendedData.size(), f.getType()));
-                }
-                continue;
-            }
-            args.add(val);
-            if (withType) {
-                types.add(f.getType());
-            }
-        }
-        if (withType) {
-            return Pair.of(args.toArray(), types.stream().mapToInt(Integer::intValue).toArray());
-        } else {
-            return Pair.of(args.toArray(), null);
-        }
-    }
-
-    /**
-     * @see #extractRowValues
-     */
-    private Pair<List<Object[]>, int[]> extractBatchRowValues(List<Field> fields, List<Map> data) {
-        // 第一次调用获取类型数组
-        Pair<Object[], int[]> firstRowValues = extractRowValues(fields, data.get(0), true);
-        int[] types = firstRowValues.getRight(); // 保存类型数组
-
-        // 后续调用不再传递 withType=true，直接复用 types
-        List<Object[]> rowValuesCollection = new ArrayList<>();
-        rowValuesCollection.add(firstRowValues.getLeft()); // 将第一行结果加入列表
-        rowValuesCollection.addAll(data.stream().skip(1) // 跳过第一行
-                .map(row->extractRowValues(fields, row, false).getLeft()).collect(Collectors.toList()));
-
-        return Pair.of(rowValuesCollection, types);
     }
 
     @Override
@@ -663,7 +616,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
      *
      * @param sql    SQL构建器
      * @param config PageSql配置
-     *               w
      */
     protected void buildCursorConditionOnly(StringBuilder sql, PageSql config) {
         boolean noCondition = StringUtil.isBlank(config.getQueryFilter());
@@ -741,6 +693,13 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         }
 
         return cursorArgs;
+    }
+
+    /**
+     * SQL语句参数设置策略
+     */
+    protected PreparedStatementSetterStrategy getPreparedStatementSetterStrategy() {
+        return preparedStatementSetterStrategy;
     }
 
     /**
@@ -915,25 +874,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             DatabaseUtil.close(rs);
         }
         return primaryKeys;
-    }
-
-    @Override
-    public Result writerDDL(DatabaseConnectorInstance connectorInstance, DDLConfig config) {
-        Result result = new Result();
-        try {
-            Assert.hasText(config.getSql(), "执行SQL语句不能为空.");
-            connectorInstance.execute(databaseTemplate-> {
-                // 执行ddl时, 带上dbs唯一标识码，防止双向同步导致死循环
-                databaseTemplate.execute(DatabaseConstant.DBS_UNIQUE_CODE.concat(config.getSql()));
-                return true;
-            });
-            Map<String, String> successMap = new HashMap<>();
-            successMap.put(ConfigConstant.BINLOG_DATA, config.getSql());
-            result.addSuccessData(Collections.singletonList(successMap));
-        } catch (Exception e) {
-            result.getError().append(String.format("执行ddl: %s, 异常：%s", config.getSql(), e.getMessage()));
-        }
-        return result;
     }
 
     private void printTraceLog(PluginContext context, String event, Map row, boolean success, String message) {
