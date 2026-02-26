@@ -359,11 +359,11 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
         String id = params.get(ConfigConstant.CONFIG_MODEL_ID);
         Mapping mapping = assertMappingExist(id);
         String type = params.get(ConfigConstant.CONFIG_MODEL_TYPE);
-        String customTable = params.get("customTable");
+        String searchKey = params.get("searchKey");
         boolean isSource = StringUtil.equals("source", type);
         List<Table> tables = getMappingTables(mapping, isSource);
-        if (!CollectionUtils.isEmpty(tables) && StringUtil.isNotBlank(customTable)) {
-            return tables.stream().filter(t -> t.getName().contains(customTable)).collect(Collectors.toList());
+        if (!CollectionUtils.isEmpty(tables) && StringUtil.isNotBlank(searchKey)) {
+            return tables.stream().filter(t -> t.getName().contains(searchKey)).collect(Collectors.toList());
         }
         return tables;
     }
