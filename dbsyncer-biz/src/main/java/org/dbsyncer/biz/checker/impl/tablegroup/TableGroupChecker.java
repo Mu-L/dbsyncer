@@ -73,6 +73,8 @@ public class TableGroupChecker extends AbstractChecker {
         Assert.hasText(mappingId, "tableGroup mappingId is empty.");
         Assert.hasText(sourceTable, "tableGroup sourceTable is empty.");
         Assert.hasText(targetTable, "tableGroup targetTable is empty.");
+        Assert.hasText(sourceType, "tableGroup sourceType is empty.");
+        Assert.hasText(targetType, "tableGroup targetType is empty.");
         Mapping mapping = profileComponent.getMapping(mappingId);
         Assert.notNull(mapping, "mapping can not be null.");
 
