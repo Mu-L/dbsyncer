@@ -170,12 +170,12 @@ public class MappingController extends BaseController {
         }
     }
 
-    @PostMapping("/getCustomTable")
+    @PostMapping("/searchCustomTable")
     @ResponseBody
-    public RestResult getCustomTable(HttpServletRequest request) {
+    public RestResult searchCustomTable(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
-            return RestResult.restSuccess(mappingService.getCustomTable(params));
+            return RestResult.restSuccess(mappingService.searchCustomTable(params));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
