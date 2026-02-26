@@ -35,9 +35,17 @@ public class HttpConfigValidator implements ConfigValidator<HttpConnector, HttpC
         Assert.hasText(url, "url is empty.");
         Assert.hasText(properties, "properties is empty.");
         connectorConfig.setUrl(url);
-        connectorConfig.setEnableEncrypt(StringUtil.isNotBlank(params.get("enableEncrypt")));
-        connectorConfig.setPublicNetwork(StringUtil.isNotBlank(params.get("publicNetwork")));
+        connectorConfig.setEnableEncrypt(isEnable(params.get("enableEncrypt")));
+        connectorConfig.setPublicNetwork(isEnable(params.get("publicNetwork")));
         connectorConfig.setProperties(HttpUtil.parse(properties));
+    }
+
+    private boolean isEnable(Object key) {
+        if (key != null) {
+            String enabled = String.valueOf(key);
+            return StringUtil.equals(enabled, "true") || StringUtil.equals(enabled, "on");
+        }
+        return false;
     }
 
     @Override

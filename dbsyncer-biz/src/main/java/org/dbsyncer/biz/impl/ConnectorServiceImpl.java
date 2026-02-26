@@ -85,9 +85,8 @@ public class ConnectorServiceImpl extends BaseServiceImpl implements ConnectorSe
         params.put(ConfigConstant.CONFIG_MODEL_NAME, connector.getName() + "(复制)");
         ConfigModel model = connectorChecker.checkAddConfigModel(params);
         log(LogType.ConnectorLog.COPY, model);
-        profileComponent.addConfigModel(model);
 
-        return String.format("复制成功[%s]", model.getName());
+        return profileComponent.addConfigModel(model);
     }
 
     @Override
