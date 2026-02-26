@@ -45,7 +45,7 @@ public interface TableGroupService {
      * @param mappingId
      * @param ids
      */
-    boolean remove(String mappingId, String ids);
+    String remove(String mappingId, String ids);
 
     /**
      * 获取表关系

@@ -176,6 +176,7 @@ public class OpenApiController extends BaseController implements InitializingBea
         Set<String> parsePackage = new HashSet<>();
         parsePackage.add("/connector/");
         parsePackage.add("/mapping/");
+        parsePackage.add("/tableGroup/");
         RequestMappingHandlerMapping mapping = applicationContext.getBean(RequestMappingHandlerMapping.class);
         // 获取url与类和方法的对应信息
         Map<RequestMappingInfo, HandlerMethod> map = mapping.getHandlerMethods();

@@ -125,7 +125,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
     }
 
     @Override
-    public boolean remove(String mappingId, String ids) {
+    public String remove(String mappingId, String ids) {
         Assert.hasText(mappingId, "Mapping id can not be null");
         Assert.hasText(ids, "TableGroup ids can not be null");
         Mapping mapping = profileComponent.getMapping(mappingId);
@@ -144,7 +144,7 @@ public class TableGroupServiceImpl extends BaseServiceImpl implements TableGroup
 
         // 重置排序
         resetTableGroupAllIndex(mappingId);
-        return true;
+        return mappingId;
     }
 
     @Override

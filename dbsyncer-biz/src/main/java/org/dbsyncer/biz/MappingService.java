@@ -109,12 +109,12 @@ public interface MappingService {
     String refreshMappingTables(String id);
 
     /**
-     * 获取自定义表
+     * 查询自定义表
      *
      * @param params
      * @return
      */
-    Table getCustomTable(Map<String, String> params);
+    List<Table> searchCustomTable(Map<String, String> params);
 
     /**
      * 保存自定义表
