@@ -167,7 +167,7 @@ public class MappingServiceImpl extends BaseServiceImpl implements MappingServic
                 log(LogType.TableGroupLog.COPY, newTableGroup);
             });
         }
-        return String.format("复制成功[%s]", newMapping.getName());
+        return newMapping.getId();
     }
 
     @Override
