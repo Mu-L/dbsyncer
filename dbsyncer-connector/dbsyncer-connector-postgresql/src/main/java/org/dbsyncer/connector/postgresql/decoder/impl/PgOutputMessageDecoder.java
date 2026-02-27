@@ -140,8 +140,13 @@ public class PgOutputMessageDecoder extends AbstractMessageDecoder {
         final int relationId = buffer.getInt();
         final TableId tableId = tables.get(relationId);
         if (null != tableId) {
-            String newTuple = new String(new byte[]{buffer.get()}, 0, 1);
-            switch (newTuple) {
+            // UPDATE 场景下可能包含旧值(O)和新值(N)，需要合并处理
+            if (type == MessageTypeEnum.UPDATE) {
+                return parseUpdateData(tableId, buffer);
+            }
+            
+            String tupleType = new String(new byte[]{buffer.get()}, 0, 1);
+            switch (tupleType) {
                 case "N":
                 case "K":
                 case "O":
@@ -150,10 +155,79 @@ public class PgOutputMessageDecoder extends AbstractMessageDecoder {
                     return new RowChangedEvent(tableId.tableName, type.name(), data, null, null);
 
                 default:
-                    logger.info("N, K, O not set, got instead {}", newTuple);
+                    logger.info("N, K, O not set, got instead {}", tupleType);
             }
         }
         return null;
+    }
+    
+    /**
+     * 解析 UPDATE 数据，处理新旧值合并
+     * PostgreSQL pgoutput 在 REPLICA IDENTITY FULL 模式下会发送:
+     * 1. "O" - 旧值元组 (可选)
+     * 2. "N" - 新值元组
+     * 
+     * 新值中可能包含 TOASTED ("u") 字段，表示该字段未变更，需要从旧值中获取
+     */
+    private RowChangedEvent parseUpdateData(TableId tableId, ByteBuffer buffer) {
+        List<Object> oldData = null;
+        List<Object> newData = null;
+        
+        String firstTupleType = new String(new byte[]{buffer.get()}, 0, 1);
+        
+        // 如果第一个是旧值 "O"，先读取旧值
+        if ("O".equals(firstTupleType)) {
+            oldData = new ArrayList<>();
+            readTupleData(tableId, buffer, oldData);
+            
+            // 继续读取新值标识符
+            if (buffer.hasRemaining()) {
+                String secondTupleType = new String(new byte[]{buffer.get()}, 0, 1);
+                if ("N".equals(secondTupleType)) {
+                    newData = new ArrayList<>();
+                    readTupleData(tableId, buffer, newData);
+                }
+            }
+        } else if ("N".equals(firstTupleType)) {
+            // 直接读取新值（没有旧值的情况）
+            newData = new ArrayList<>();
+            readTupleData(tableId, buffer, newData);
+        } else {
+            // 这里原则上不会进入，但不排除日志格式变更，故严谨起见增加日志输出，便于外部感知
+            logger.error("UPDATE: unexpected tuple type '{}', expected 'O' or 'N'", firstTupleType);
+            return null;
+        }
+        
+        // 合并新旧值：如果新值中有 TOASTED 字段，使用旧值填充
+        List<Object> mergedData = mergeUpdateData(oldData, newData);
+        return new RowChangedEvent(tableId.tableName, MessageTypeEnum.UPDATE.name(), mergedData, null, null);
+    }
+    
+    /**
+     * 合并 UPDATE 的新旧值
+     * 如果新值中某些字段是 TOASTED（未变更），则使用旧值中的对应字段
+     */
+    private List<Object> mergeUpdateData(List<Object> oldData, List<Object> newData) {
+        if (newData == null) {
+            return oldData != null ? oldData : new ArrayList<>();
+        }
+        
+        if (oldData == null) {
+            return newData;
+        }
+        
+        // 合并数据：新值中的 TOASTED 字段用旧值替换
+        List<Object> merged = new ArrayList<>(newData.size());
+        for (int i = 0; i < newData.size(); i++) {
+            Object newValue = newData.get(i);
+            if ("TOASTED".equals(newValue) && i < oldData.size()) {
+                // 使用旧值填充 TOASTED 字段
+                merged.add(oldData.get(i));
+            } else {
+                merged.add(newValue);
+            }
+        }
+        return merged;
     }
 
     private void readTupleData(TableId tableId, ByteBuffer msg, List<Object> data) {

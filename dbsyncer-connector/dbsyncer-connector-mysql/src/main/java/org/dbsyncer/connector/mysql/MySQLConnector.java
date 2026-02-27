@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.connector.mysql;
 
+import net.sf.jsqlparser.statement.alter.Alter;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.mysql.cdc.MySQLListener;
@@ -219,4 +220,31 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
         return url.toString();
     }
 
+    @Override
+    public String buildAlterCatalog(DatabaseConnectorInstance connectorInstance, Alter alter) {
+        // 目标数据库名
+        String catalog = connectorInstance.getCatalog();
+        catalog = buildWithQuotation(catalog);
+        // 1. 生成基础 SQL
+        String sql = alter.toString();
+
+        // 如果目标库名不为空且当前 SQL 未包含该库名
+        if (catalog != null && !sql.contains(catalog + ".")) {
+            String tableName = alter.getTable().getName();
+
+            // 正则解释：
+            // (?i) : 忽略大小写
+            // (ALTER\s+TABLE\s+) : 捕获组1，匹配 "ALTER TABLE " 及其后的空格
+            // (?:`[^`]+`\.)? : 非捕获组，匹配可选的 "旧库名." (例如 `test`.)
+            // (?:`)? : 匹配可选的起始反引号
+            // \\Q...\\E : 匹配纯表名
+            // (?:`)? : 匹配可选的结束反引号
+            String regex = "(?i)(ALTER\\s+TABLE\\s+)(?:`[^`]+`\\.)?(?:`)?" + java.util.regex.Pattern.quote(tableName) + "(?:`)?";
+
+            // 替换为：捕获组1 + 新库名 + . + 表名
+            String replacement = "$1" + catalog + "." + tableName;
+            return sql.replaceFirst(regex, replacement);
+        }
+        return sql;
+    }
 }
