@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.sdk.connector.database;
 
+import net.sf.jsqlparser.statement.alter.Alter;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.sdk.config.SqlBuilderConfig;
@@ -139,5 +140,16 @@ public interface Database {
      */
     default boolean buildCustomValue(List<String> vs, Field field) {
         return false;
+    }
+
+    /**
+     * 替换ddl语句中的catalog
+     *
+     * @param connectorInstance
+     * @param alter
+     * @return
+     */
+    default String buildAlterCatalog(DatabaseConnectorInstance connectorInstance, Alter alter){
+        return alter.toString();
     }
 }

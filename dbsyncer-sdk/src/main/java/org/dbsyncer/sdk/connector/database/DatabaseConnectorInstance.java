@@ -105,6 +105,10 @@ public class DatabaseConnectorInstance implements ConnectorInstance<DatabaseConf
         return dataSource;
     }
 
+    public String getCatalog() {
+        return catalog;
+    }
+
     @Override
     public Object clone() throws CloneNotSupportedException {
         return super.clone();

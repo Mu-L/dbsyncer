@@ -199,7 +199,7 @@ public class MetricReporter implements ScheduledTaskJob {
             dashboardMetric.setInsert(getMappingInsert(metaAll));
             dashboardMetric.setUpdate(getMappingUpdate(metaAll));
             dashboardMetric.setDelete(getMappingDelete(metaAll));
-            dashboardMetric.setDdl(0);
+            dashboardMetric.setDdl(getMappingDll(metaAll));
             // 获取同步趋势数据
             updateSyncTrendData(metaAll, dashboardMetric);
 
@@ -374,6 +374,16 @@ public class MetricReporter implements ScheduledTaskJob {
      */
     private long getMappingDelete(List<Meta> metaAll) {
         return queryMappingMetricCount(metaAll, (query)->query.addFilter(ConfigConstant.DATA_EVENT, ConnectorConstant.OPERTION_DELETE));
+    }
+
+    /**
+     * 获取所有DDL事件数
+     *
+     * @param metaAll
+     * @return
+     */
+    private long getMappingDll(List<Meta> metaAll) {
+        return queryMappingMetricCount(metaAll, (query)->query.addFilter(ConfigConstant.DATA_EVENT, ConnectorConstant.OPERTION_ALTER));
     }
 
     private long queryMappingMetricCount(List<Meta> metaAll, Consumer<Query> operation) {
