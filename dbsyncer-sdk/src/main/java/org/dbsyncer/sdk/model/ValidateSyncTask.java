@@ -4,12 +4,23 @@
 package org.dbsyncer.sdk.model;
 
 public class ValidateSyncTask extends CommonTask {
+    // 数据源连接器ID
     private String sourceConnectorId;
-    private String targetConnectorId;
+
+    // 数据源库名称
     private String sourceDatabase;
+
+    // 数据源库构架名
+    private String sourceSchema;
+
+    // 目标源连接器ID
+    private String targetConnectorId;
+
+    // 目标源库名称
     private String targetDatabase;
-    private String name;
-    private String tableGroups;
+
+    // 目标源库构架名
+    private String targetSchema;
 
     /**
      * 触发方式, 可选值: once, cron
@@ -29,20 +40,28 @@ public class ValidateSyncTask extends CommonTask {
         this.sourceConnectorId = sourceConnectorId;
     }
 
-    public String getTargetConnectorId() {
-        return targetConnectorId;
-    }
-
-    public void setTargetConnectorId(String targetConnectorId) {
-        this.targetConnectorId = targetConnectorId;
-    }
-
     public String getSourceDatabase() {
         return sourceDatabase;
     }
 
     public void setSourceDatabase(String sourceDatabase) {
         this.sourceDatabase = sourceDatabase;
+    }
+
+    public String getSourceSchema() {
+        return sourceSchema;
+    }
+
+    public void setSourceSchema(String sourceSchema) {
+        this.sourceSchema = sourceSchema;
+    }
+
+    public String getTargetConnectorId() {
+        return targetConnectorId;
+    }
+
+    public void setTargetConnectorId(String targetConnectorId) {
+        this.targetConnectorId = targetConnectorId;
     }
 
     public String getTargetDatabase() {
@@ -53,22 +72,12 @@ public class ValidateSyncTask extends CommonTask {
         this.targetDatabase = targetDatabase;
     }
 
-    @Override
-    public String getName() {
-        return name;
+    public String getTargetSchema() {
+        return targetSchema;
     }
 
-    @Override
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getTableGroups() {
-        return tableGroups;
-    }
-
-    public void setTableGroups(String tableGroups) {
-        this.tableGroups = tableGroups;
+    public void setTargetSchema(String targetSchema) {
+        this.targetSchema = targetSchema;
     }
 
     public String getTrigger() {
