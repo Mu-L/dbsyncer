@@ -18,7 +18,7 @@ import java.util.Map;
 public interface TaskService {
 
     /**
-     * 新增任务
+     * 新增
      */
     String add(Map<String, String> params);
 
@@ -28,7 +28,12 @@ public interface TaskService {
     String edit(Map<String, String> params);
 
     /**
-     * 删除任务
+     * 复制
+     */
+    String copy(String id);
+
+    /**
+     * 删除
      */
     void delete(String id);
 
@@ -38,7 +43,7 @@ public interface TaskService {
     void start(String id);
 
     /**
-     * 停止任务
+     * 停止
      */
     void stop(String id);
 
