@@ -63,6 +63,11 @@ public class ParserSupportConfiguration {
             }
 
             @Override
+            public String copy(String id) {
+                return id;
+            }
+
+            @Override
             public void delete(String id) {
 
             }
