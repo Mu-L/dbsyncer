@@ -76,6 +76,7 @@
             <div th:replace="mapping/editTable :: content"></div>
 
             <!-- 执行策略选择 -->
+            <h3><i class="fa fa-history text-success"></i> 执行策略</h3>
             <div class="grid grid-cols-4">
                 <div id="task-trigger" class="radio-group">
                     <input type="radio" name="trigger" value="once" th:checked="${'once' eq task?.trigger}" />
@@ -95,10 +96,12 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-6 mt-4">
+            <h3><i class="fa fa-database text-success"></i> 校验范围</h3>
+            <p class="text-xs text-tertiary">对所有表映射关系都生效</p>
+            <div class="grid grid-cols-9 mt-4">
                 <div class="form-item">
-                    <label class="form-label">校验后同步</label>
-                        <input type="checkbox" name="enablerRowData" class="validate-sync-item" value="true" th:checked="${task?.enablerRowData}" />
+                    <label class="form-label">订正</label>
+                    <input type="checkbox" name="enableSync" class="validate-sync-item" value="true" th:checked="${task?.enableSync}" />
                 </div>
                 <div class="form-item">
                     <label class="form-label">行数据</label>
