@@ -78,7 +78,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         }
         List<ValidateSyncTaskVO> list = new ArrayList<>();
         data.forEach(task -> {
-            if(task instanceof ValidateSyncTask){
+            if (task instanceof ValidateSyncTask) {
                 ValidateSyncTask t = (ValidateSyncTask) task;
                 list.add(convertTask2Vo(t));
             }

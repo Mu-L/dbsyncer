@@ -71,6 +71,10 @@
                 </div>
             </div>
 
+            <!-- 映射关系区域 -->
+            <h3><i class="fa fa-table text-success"></i> 映射关系</h3>
+            <div th:replace="mapping/editTable :: content"></div>
+
             <!-- 执行策略选择 -->
             <div class="grid grid-cols-4">
                 <div id="task-trigger" class="radio-group">
@@ -80,6 +84,42 @@
                     <label>定时</label>
                 </div>
             </div>
+
+            <!-- Cron配置 -->
+            <div th:id="trigger-cron" class="hidden">
+                <div class="grid grid-cols-3 mt-4">
+                    <div class="form-item">
+                        <label class="form-label">Cron<strong class="text-primary">*</strong></label>
+                        <input class="form-control" required name="cron" th:value="${task?.cron}?:'*/30 * * * * ?'" type="text" placeholder="*/30 * * * * ?" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-6 mt-4">
+                <div class="form-item">
+                    <label class="form-label">校验后同步</label>
+                        <input type="checkbox" name="enablerRowData" class="validate-sync-item" value="true" th:checked="${task?.enablerRowData}" />
+                </div>
+                <div class="form-item">
+                    <label class="form-label">行数据</label>
+                    <input type="checkbox" name="enablerRowData" class="validate-sync-item" value="true" th:checked="${task?.enablerRowData}" />
+                </div>
+                <div class="form-item">
+                    <label class="form-label">索引</label>
+                    <input type="checkbox" name="enableIndex" class="validate-sync-item" value="true" th:checked="${task?.enableIndex}" />
+                </div>
+                <div class="form-item">
+                    <label class="form-label">触发器</label>
+                    <input type="checkbox" name="enableTrigger" class="validate-sync-item" value="true" th:checked="${task?.enableTrigger}" />
+                </div>
+                <div class="form-item">
+                    <label class="form-label">函数</label>
+                    <input type="checkbox" name="enableFunction" class="validate-sync-item" value="true" th:checked="${task?.enableFunction}" />
+                </div>
+            </div>
+
+            <!-- 空白块 -->
+            <div class="blank-block"></div>
 
         </div>
     </form>
@@ -100,6 +140,38 @@
             $input.unbind();
         });
     }
+
+    function showTriggerConfig(model) {
+        const cron = $("#trigger-cron");
+        console.log(model);
+        if ('once' === model) {
+            cron.addClass("hidden");
+        } else {
+            cron.removeClass("hidden");
+        }
+    }
+
+    // 绑定执行一次+定时切换事件
+    function bindTriggerChange() {
+        const trigger = $('#task-trigger').radioGroup({
+            theme: 'info',
+            size: 'md',
+            onChange: function (value, label) {
+                showTriggerConfig(value);
+            }
+        });
+        // 渲染选择radio配置
+        showTriggerConfig(trigger.getValue());
+    }
+
+    $(function () {
+        bindTriggerChange();
+
+        $(".validate-sync-item").checkboxGroup({
+            theme: 'info',
+            size: 'md'
+        });
+    });
 </script>
 
 </html>

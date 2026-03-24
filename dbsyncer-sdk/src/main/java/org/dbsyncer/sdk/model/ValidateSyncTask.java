@@ -32,6 +32,31 @@ public class ValidateSyncTask extends CommonTask {
      */
     private String cron = "*/30 * * * * ?";
 
+    /**
+     * 校验不一致后是否同步目标库
+     */
+    private boolean enableSync = false;
+
+    /**
+     * 校验范围（行数据）
+     */
+    private boolean enablerRowData = true;
+
+    /**
+     * 校验范围（索引）
+     */
+    private boolean enableIndex = false;
+
+    /**
+     * 校验范围（触发器）
+     */
+    private boolean enableTrigger = false;
+
+    /**
+     * 校验范围（函数）
+     */
+    private boolean enableFunction = false;
+
     public String getSourceConnectorId() {
         return sourceConnectorId;
     }
@@ -94,5 +119,45 @@ public class ValidateSyncTask extends CommonTask {
 
     public void setCron(String cron) {
         this.cron = cron;
+    }
+
+    public boolean isEnableSync() {
+        return enableSync;
+    }
+
+    public void setEnableSync(boolean enableSync) {
+        this.enableSync = enableSync;
+    }
+
+    public boolean isEnablerRowData() {
+        return enablerRowData;
+    }
+
+    public void setEnablerRowData(boolean enablerRowData) {
+        this.enablerRowData = enablerRowData;
+    }
+
+    public boolean isEnableIndex() {
+        return enableIndex;
+    }
+
+    public void setEnableIndex(boolean enableIndex) {
+        this.enableIndex = enableIndex;
+    }
+
+    public boolean isEnableTrigger() {
+        return enableTrigger;
+    }
+
+    public void setEnableTrigger(boolean enableTrigger) {
+        this.enableTrigger = enableTrigger;
+    }
+
+    public boolean isEnableFunction() {
+        return enableFunction;
+    }
+
+    public void setEnableFunction(boolean enableFunction) {
+        this.enableFunction = enableFunction;
     }
 }
