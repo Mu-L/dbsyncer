@@ -3,6 +3,10 @@
  */
 package org.dbsyncer.sdk.model;
 
+import org.dbsyncer.common.enums.CommonTaskTriggerEnum;
+
+import java.util.List;
+
 public class ValidateSyncTask extends CommonTask {
     // 数据源连接器ID
     private String sourceConnectorId;
@@ -13,6 +17,9 @@ public class ValidateSyncTask extends CommonTask {
     // 数据源库构架名
     private String sourceSchema;
 
+    // 数据源库表列表
+    private List<Table> sourceTable;
+
     // 目标源连接器ID
     private String targetConnectorId;
 
@@ -22,10 +29,18 @@ public class ValidateSyncTask extends CommonTask {
     // 目标源库构架名
     private String targetSchema;
 
+    // 目标源库表列表
+    private List<Table> targetTable;
+
     /**
-     * 触发方式, 可选值: once, cron
+     * 关联同步任务ID
      */
-    private String trigger = "once";
+    private String mappingId;
+
+    /**
+     * 触发方式
+     */
+    private String trigger = CommonTaskTriggerEnum.ONCE.getCode();
 
     /**
      * 定时表达式, 格式: [秒] [分] [小时] [日] [月] [周]
@@ -81,6 +96,14 @@ public class ValidateSyncTask extends CommonTask {
         this.sourceSchema = sourceSchema;
     }
 
+    public List<Table> getSourceTable() {
+        return sourceTable;
+    }
+
+    public void setSourceTable(List<Table> sourceTable) {
+        this.sourceTable = sourceTable;
+    }
+
     public String getTargetConnectorId() {
         return targetConnectorId;
     }
@@ -103,6 +126,22 @@ public class ValidateSyncTask extends CommonTask {
 
     public void setTargetSchema(String targetSchema) {
         this.targetSchema = targetSchema;
+    }
+
+    public List<Table> getTargetTable() {
+        return targetTable;
+    }
+
+    public void setTargetTable(List<Table> targetTable) {
+        this.targetTable = targetTable;
+    }
+
+    public String getMappingId() {
+        return mappingId;
+    }
+
+    public void setMappingId(String mappingId) {
+        this.mappingId = mappingId;
     }
 
     public String getTrigger() {

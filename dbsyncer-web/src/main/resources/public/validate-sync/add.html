@@ -28,6 +28,15 @@
                 </div>
             </div>
 
+            <div class="grid grid-cols-2 mt-5">
+                <div class="form-item">
+                    <label class="form-label">名称<strong class="text-primary">*</strong></label>
+                    <div class="form-control-area">
+                        <input class="form-control" name="name" type="text" maxlength="50" required placeholder="请输入任务名称"/>
+                    </div>
+                </div>
+            </div>
+
             <!-- 自定义配置 -->
             <div id="custom-config" class="hidden mt-4">
                 <!-- 数据源和目标源 -->
@@ -80,24 +89,17 @@
                 <!-- 驱动名称和匹配相似表 -->
                 <div class="grid grid-cols-2 mt-5">
                     <div class="form-item">
-                        <label class="form-label">名称<strong class="text-primary">*</strong></label>
+                        <label class="form-label"><i class="fa fa-table text-info"></i> 匹配相似表</label>
                         <div class="form-control-area">
-                            <input class="form-control" name="name" type="text" maxlength="50" required placeholder="请输入任务名称"/>
+                            <label class="form-switch">
+                                <input name="autoMatchTable" type="checkbox" />
+                                <span class="switch-track">
+                                    <span class="switch-option switch-option-on">Yes</span>
+                                    <span class="switch-option switch-option-off">No</span>
+                                    <span class="switch-thumb"></span>
+                                </span>
+                            </label>
                         </div>
-                    </div>
-
-                    <div class="form-item">
-                        <label class="form-label">
-                            <i class="fa fa-table text-info"></i> 匹配相似表
-                        </label>
-                        <label class="form-switch">
-                            <input name="autoMatchTable" type="checkbox" />
-                            <span class="switch-track">
-                                <span class="switch-option switch-option-on">Yes</span>
-                                <span class="switch-option switch-option-off">No</span>
-                                <span class="switch-thumb"></span>
-                            </span>
-                        </label>
                     </div>
                 </div>
 
@@ -129,12 +131,6 @@
                     <div class="form-item">
                         <label class="form-label">同步任务</label>
                         <select name="mappingId" id="mappingTask" class="form-control"></select>
-                    </div>
-                    <div class="form-item">
-                        <label class="form-label">名称<strong class="text-primary">*</strong></label>
-                        <div class="form-control-area">
-                            <input class="form-control" name="name" type="text" maxlength="50" required placeholder="请输入任务名称"/>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -241,7 +237,7 @@
 
             }
         });
-        doPoster('/mapping/search', {}, function (response) {
+        doPoster('/mapping/search', {"pageSize": 1000}, function (response) {
             if (response.success && response.data) {
                 const data = response.data;
                 let array = [];

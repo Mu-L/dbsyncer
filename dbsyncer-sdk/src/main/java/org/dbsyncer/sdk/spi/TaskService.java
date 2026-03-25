@@ -15,22 +15,17 @@ import java.util.Map;
  * @version 1.0.0
  * @date 2025-05-12 23:36
  */
-public interface TaskService {
+public interface TaskService<T extends CommonTask> {
 
     /**
      * 新增
      */
-    String add(Map<String, String> params);
+    String add(T task);
 
     /**
      * 修改
      */
-    String edit(Map<String, String> params);
-
-    /**
-     * 复制
-     */
-    String copy(String id);
+    String edit(T task);
 
     /**
      * 删除
@@ -50,7 +45,7 @@ public interface TaskService {
     /**
      * 获取任务详情
      */
-    CommonTask get(String id);
+    T get(String id);
 
     /**
      * 任务列表
