@@ -33,11 +33,6 @@ public class ValidateSyncTask extends CommonTask {
     private List<Table> targetTable;
 
     /**
-     * 关联同步任务ID
-     */
-    private String mappingId;
-
-    /**
      * 触发方式
      */
     private String trigger = CommonTaskTriggerEnum.ONCE.getCode();
@@ -134,14 +129,6 @@ public class ValidateSyncTask extends CommonTask {
 
     public void setTargetTable(List<Table> targetTable) {
         this.targetTable = targetTable;
-    }
-
-    public String getMappingId() {
-        return mappingId;
-    }
-
-    public void setMappingId(String mappingId) {
-        this.mappingId = mappingId;
     }
 
     public String getTrigger() {

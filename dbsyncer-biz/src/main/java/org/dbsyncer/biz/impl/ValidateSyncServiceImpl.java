@@ -17,6 +17,7 @@ import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.spi.TaskService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
@@ -53,16 +54,32 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public String add(Map<String, String> params) {
-        String mappingId = params.get("mappingId");
         ValidateSyncTask task = new ValidateSyncTask();
         checkTask(task, params);
         // 默认检查行数据
         task.setEnablerRowData(true);
         // 关联同步任务
+        String mappingId = params.get("mappingId");
         if (StringUtil.isNotBlank(mappingId)) {
             Mapping mapping = profileComponent.getMapping(mappingId);
             Assert.notNull(mapping, "mapping is not exist");
-            task.setMappingId(mappingId);
+            task.setSourceConnectorId(mapping.getSourceConnectorId());
+            task.setSourceDatabase(mapping.getSourceDatabase());
+            task.setSourceSchema(mapping.getSourceSchema());
+            task.setSourceTable(deepCopy(mapping.getSourceTable()));
+            task.setTargetConnectorId(mapping.getTargetConnectorId());
+            task.setTargetDatabase(mapping.getTargetDatabase());
+            task.setTargetSchema(mapping.getTargetSchema());
+            task.setTargetTable(deepCopy(mapping.getTargetTable()));
+            // 复制表组列表
+            List<TableGroup> tableGroupAll = tableGroupService.getTableGroupAll(mappingId);
+            if (!CollectionUtils.isEmpty(tableGroupAll)) {
+                tableGroupAll.forEach(tableGroup -> {
+                    TableGroup newTable = deepCopy(tableGroup);
+                    newTable.setMappingId(task.getId());
+                    profileComponent.addTableGroup(newTable);
+                });
+            }
         } else {
             task.setSourceConnectorId(params.get("sourceConnectorId"));
             task.setSourceDatabase(params.get("sourceDatabase"));
@@ -76,6 +93,14 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             // StringUtil.isNotBlank(params.get("autoMatchTable"));
         }
         return taskService.add(task);
+    }
+
+    private List<Table> deepCopy(List<Table> targetTable) {
+        return JsonUtil.jsonToArray(JsonUtil.objToJson(targetTable), Table.class);
+    }
+
+    private TableGroup deepCopy(TableGroup tableGroup) {
+        return JsonUtil.jsonToObj(JsonUtil.objToJson(tableGroup), TableGroup.class);
     }
 
     @Override
@@ -104,6 +129,13 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public String delete(String id) {
+        // TODO 任务状态判断，运行中不允许删除表组
+        // 删除tableGroup
+        List<TableGroup> groupList = profileComponent.getTableGroupAll(id);
+        if (!CollectionUtils.isEmpty(groupList)) {
+            groupList.forEach(t -> profileComponent.removeTableGroup(t.getId()));
+        }
+
         taskService.delete(id);
         return "删除成功";
     }
@@ -148,14 +180,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         if (task == null) {
             return null;
         }
-
-        // 关联同步任务
-        if(StringUtil.isNotBlank(task.getMappingId())){
-            params.put("mappingId", task.getMappingId());
-            return tableGroupService.search(params);
-        }
-
-        return null;
+        // 复用查表组
+        params.put("mappingId", task.getId());
+        return tableGroupService.search(params);
     }
 
     @Override
@@ -166,23 +193,6 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
     private ValidateSyncTaskVO convertTask2Vo(ValidateSyncTask task) {
         if (task == null) {
             return null;
-        }
-        // 关联同步任务
-        if (StringUtil.isNotBlank(task.getMappingId())) {
-            Mapping mapping = profileComponent.getMapping(task.getMappingId());
-            Connector s = profileComponent.getConnector(mapping.getSourceConnectorId());
-            Connector t = profileComponent.getConnector(mapping.getTargetConnectorId());
-            ValidateSyncTaskVO vo = new ValidateSyncTaskVO(s, t);
-            BeanUtils.copyProperties(task, vo);
-            vo.setSourceConnectorId(mapping.getSourceConnectorId());
-            vo.setSourceDatabase(mapping.getSourceDatabase());
-            vo.setSourceSchema(mapping.getSourceSchema());
-            vo.setSourceTable(mapping.getSourceTable());
-            vo.setTargetConnectorId(mapping.getTargetConnectorId());
-            vo.setTargetDatabase(mapping.getTargetDatabase());
-            vo.setTargetSchema(mapping.getTargetSchema());
-            vo.setTargetTable(mapping.getTargetTable());
-            return vo;
         }
 
         Connector s = profileComponent.getConnector(task.getSourceConnectorId());
