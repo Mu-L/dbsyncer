@@ -162,6 +162,68 @@ public class ValidateSyncController extends BaseController {
         }
     }
 
+    @PostMapping("/searchTableGroup")
+    @ResponseBody
+    public RestResult searchTableGroup(HttpServletRequest request) {
+        try {
+            Map<String, String> params = getParams(request);
+            return RestResult.restSuccess(validateSyncService.searchTableGroup(params));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping("/refreshTables")
+    @ResponseBody
+    public RestResult refreshTables(@RequestParam(value = "id") String id) {
+        try {
+            // TODO
+            return RestResult.restSuccess(200);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping("/addTableGroup")
+    @ResponseBody
+    public RestResult addTableGroup(HttpServletRequest request) {
+        try {
+            Map<String, String> params = getParams(request);
+            // TODO
+            return RestResult.restSuccess(200);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping("/editTableGroup")
+    @ResponseBody
+    public RestResult editTableGroup(HttpServletRequest request) {
+        try {
+            Map<String, String> params = getParams(request);
+            // TODO
+            return RestResult.restSuccess(200);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping("/removeTableGroup")
+    @ResponseBody
+    public RestResult removeTableGroup(@RequestParam(value = "id") String id, @RequestParam(value = "ids") String ids) {
+        try {
+            // TODO
+            return RestResult.restSuccess(200);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
     /**
      * 查看执行结果
      */

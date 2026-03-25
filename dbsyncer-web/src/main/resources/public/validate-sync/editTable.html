@@ -150,7 +150,7 @@
                 return;
             }
             let m = {};
-            m.mappingId = $("#mappingId").val();
+            m.id = $("#taskId").val();
             m.sourceTable = sTables.join('|');
             m.targetTable = tTables.join('|');
             m.sourceType = sourceSelector.getAttribute('type');
@@ -160,7 +160,7 @@
             const $btn = $(this);
             const originalText = $btn.html();
             $btn.html('<i class="fa fa-spinner fa-spin"></i> 添加中...').prop('disabled', true);
-            doPoster("/tableGroup/add", m, function (data) {
+            doPoster("/validate-sync/addTableGroup", m, function (data) {
                 $btn.html(originalText).prop('disabled', false);
                 if (data.success === true) {
                     bootGrowl("新增映射关系成功!", "success");
@@ -186,7 +186,7 @@
                 const $btn = $(this);
                 const originalText = $btn.html();
                 $btn.html('<i class="fa fa-spinner fa-spin"></i> 删除中...').prop('disabled', true);
-                doPoster("/tableGroup/remove", {"mappingId": id, "ids" : ids.join()}, function (response) {
+                doPoster("/validate-sync/removeTableGroup", {"id": id, "ids" : ids.join()}, function (response) {
                     $btn.html(originalText).prop('disabled', false);
                     if (response.success === true) {
                         bootGrowl("删除映射关系成功!", "success");
@@ -367,7 +367,7 @@
         // 绑定添加表映射关系事件
         bindTableGroupAdd(sourceTableSelect, targetTableSelect);
         // 渲染搜索输入框和表格
-        function renderSearchTable(pagination, mappingId){
+        function renderSearchTable(pagination, taskId){
             if (pagination.total > 0) {
                 $("#searchTableGroup").html(`<div class="search-wrapper">
                     <i class="fa fa-search search-icon"></i>
@@ -377,7 +377,7 @@
                     </span>
                 </div>`);
                 initSearch('searchTableGroup', function (searchKey) {
-                    pagination.doSearch({'searchKey': searchKey, 'mappingId': mappingId});
+                    pagination.doSearch({'searchKey': searchKey, 'id': taskId});
                 });
             }
             $(".search-table-group-list").toggleClass("hidden", pagination.total <= 0);
@@ -387,8 +387,8 @@
         let initCompleted = false;
         let taskId = $("#taskId").val();
         let pagination = new PaginationManager({
-            requestUrl: '/validate-sync/tableGroup/search',
-            params: {'taskId': taskId},
+            requestUrl: '/validate-sync/searchTableGroup',
+            params: {'id': taskId},
             tableBodySelector: '#tableGroupList',
             pageSize: 5,
             renderRow: function(t, index) {

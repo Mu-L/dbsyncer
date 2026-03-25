@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.biz.impl;
 
+import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.ValidateSyncService;
 import org.dbsyncer.biz.vo.ValidateSyncTaskVO;
 import org.dbsyncer.common.enums.CommonTaskStatusEnum;
@@ -15,6 +16,7 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.Mapping;
+import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.spi.TaskService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
@@ -40,6 +42,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Resource
     private ProfileComponent profileComponent;
+
+    @Resource
+    private TableGroupService tableGroupService;
 
     @Override
     public ValidateSyncTaskVO get(String id) {
@@ -134,6 +139,23 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         });
         search.setData(list);
         return search;
+    }
+
+    @Override
+    public Paging<TableGroup> searchTableGroup(Map<String, String> params) {
+        String id = params.get("id");
+        ValidateSyncTask task = taskService.get(id);
+        if (task == null) {
+            return null;
+        }
+
+        // 关联同步任务
+        if(StringUtil.isNotBlank(task.getMappingId())){
+            params.put("mappingId", task.getMappingId());
+            return tableGroupService.search(params);
+        }
+
+        return null;
     }
 
     @Override

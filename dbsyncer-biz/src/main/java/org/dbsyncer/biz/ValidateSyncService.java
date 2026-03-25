@@ -5,6 +5,7 @@ package org.dbsyncer.biz;
 
 import org.dbsyncer.biz.vo.ValidateSyncTaskVO;
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.parser.model.TableGroup;
 
 import java.util.Map;
 
@@ -75,10 +76,19 @@ public interface ValidateSyncService {
     Paging<ValidateSyncTaskVO> search(Map<String, String> params);
 
     /**
+     * 搜索表关系
+     *
+     * @param params
+     * @return
+     */
+    Paging<TableGroup> searchTableGroup(Map<String, String> params);
+
+    /**
      * 获取结果
      *
      * @param id
      * @return
      */
     Object result(String id);
+
 }
