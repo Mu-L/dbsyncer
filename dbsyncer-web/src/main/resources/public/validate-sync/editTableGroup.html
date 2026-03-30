@@ -123,27 +123,14 @@
             <!-- 隐藏表单值 -->
             <div class="hidden">
                 <input id="tableGroupId" name="id" class="form-control" type="text" th:value="${tableGroup?.id}"/>
-                <input id="mappingId" class="form-control" type="text" th:value="${mapping?.id}"/>
+                <input id="taskId" class="form-control" type="text" th:value="${task?.id}"/>
                 <input id="fieldMapping" name="fieldMapping" class="form-control" type="text"/>
             </div>
-
-            <!-- 高级配置区域 -->
-            <h3><i class="fa fa-table text-info"></i> 高级配置</h3>
-            <p class="text-xs text-tertiary">只对当前表映射关系生效，优先级高于上一级的高级配置</p>
-
-            <!-- 过滤条件 -->
-            <div th:replace="mapping/editFilter :: content"></div>
-
-            <!-- 转换配置 -->
-            <div th:replace="mapping/editConvert :: content"></div>
-
-            <!-- 插件配置 -->
-            <div th:replace="mapping/editPlugin :: content"></div>
 
             <div class="blank-block-md"></div>
         </div>
     </form>
 </div>
 
-<script th:src="@{/js/mapping/editTableGroup.js}"></script>
+<script th:src="@{/js/task/editTableGroup.js}"></script>
 </html>

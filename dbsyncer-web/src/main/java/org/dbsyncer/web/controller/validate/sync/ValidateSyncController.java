@@ -4,8 +4,10 @@
 package org.dbsyncer.web.controller.validate.sync;
 
 import org.dbsyncer.biz.ConnectorService;
+import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.ValidateSyncService;
 import org.dbsyncer.biz.vo.RestResult;
+import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +43,9 @@ public class ValidateSyncController extends BaseController {
     @Resource
     private ConnectorService connectorService;
 
+    @Resource
+    private TableGroupService tableGroupService;
+
     /**
      * 任务配置首页
      */
@@ -63,7 +68,13 @@ public class ValidateSyncController extends BaseController {
      */
     @GetMapping("/page/{page}")
     public String pageEdit(ModelMap model, @PathVariable("page") String page, @RequestParam("id") String id) {
-        model.put("task", validateSyncService.get(id));
+        if (page.equals("editTableGroup")) {
+            TableGroup tableGroup = tableGroupService.getTableGroup(id);
+            model.put("tableGroup", tableGroup);
+            model.put("task", validateSyncService.get(tableGroup.getMappingId()));
+        } else {
+            model.put("task", validateSyncService.get(id));
+        }
         return "validate-sync/" + page;
     }
 
@@ -180,6 +191,17 @@ public class ValidateSyncController extends BaseController {
         try {
             // TODO
             return RestResult.restSuccess(200);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/refreshFields")
+    @ResponseBody
+    public RestResult refreshFields(@RequestParam(value = "id") String id) {
+        try {
+            return RestResult.restSuccess(tableGroupService.refreshFields(id));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
