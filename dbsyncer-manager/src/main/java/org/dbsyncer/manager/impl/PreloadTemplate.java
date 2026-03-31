@@ -39,6 +39,7 @@ import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.Query;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -227,6 +228,11 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     public void reConnect(Mapping mapping) {
         reConnect(mapping.getId(), mapping.getSourceConnectorId(), mapping.getSourceDatabase(), mapping.getSourceSchema(),
                 mapping.getTargetConnectorId(), mapping.getTargetDatabase(), mapping.getTargetSchema());
+    }
+
+    public void reConnect(ValidateSyncTask task) {
+        reConnect(task.getId(), task.getSourceConnectorId(), task.getSourceDatabase(), task.getSourceSchema(),
+                task.getTargetConnectorId(), task.getTargetDatabase(), task.getTargetSchema());
     }
 
     public void reConnect(String uniqueId, String sourceConnectorId, String sourceDatabase, String sourceSchema,

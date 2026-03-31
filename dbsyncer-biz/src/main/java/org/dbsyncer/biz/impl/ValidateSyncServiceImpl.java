@@ -15,6 +15,7 @@ import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
+import org.dbsyncer.manager.impl.PreloadTemplate;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ProfileComponent;
@@ -65,6 +66,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Resource
     private LogService logService;
+
+    @Resource
+    private PreloadTemplate preloadTemplate;
 
     @Resource
     private ValidateSyncTableGroupChecker validateSyncTableGroupChecker;
@@ -120,7 +124,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             // 匹配相似表 on
             // StringUtil.isNotBlank(params.get("autoMatchTable"));
         }
-        return taskService.add(task);
+        String id = taskService.add(task);
+        preloadTemplate.reConnect(task);
+        return id;
     }
 
     private List<Table> deepCopy(List<Table> targetTable) {
@@ -152,7 +158,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         newTask.setStatus(CommonTaskStatusEnum.READY.getCode());
         newTask.setType(CommonTaskTypeEnum.VALIDATE_SYNC.name());
         newTask.setUpdateTime(System.currentTimeMillis());
-        return taskService.add(newTask);
+        String newId = taskService.add(newTask);
+        preloadTemplate.reConnect(newTask);
+        return newId;
     }
 
     @Override
