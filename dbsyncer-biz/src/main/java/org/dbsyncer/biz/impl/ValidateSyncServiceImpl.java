@@ -26,6 +26,7 @@ import org.dbsyncer.parser.util.ConnectorInstanceUtil;
 import org.dbsyncer.parser.util.ConnectorServiceContextUtil;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.DefaultConnectorServiceContext;
+import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
@@ -144,6 +145,27 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             throw new IllegalArgumentException("Task not found");
         }
         checkTask(task, params);
+        List<TableGroup> groupAll = profileComponent.getTableGroupAll(task.getId());
+        if (!CollectionUtils.isEmpty(groupAll)) {
+            // 手动排序
+            String[] sortedTableGroupIds = StringUtil.split(params.get("sortedTableGroupIds"), StringUtil.VERTICAL_LINE);
+            if (null != sortedTableGroupIds && sortedTableGroupIds.length > 0) {
+                Map<String, TableGroup> tableGroupMap = groupAll.stream().collect(Collectors.toMap(TableGroup::getId, f->f, (k1, k2)->k1));
+                groupAll.clear();
+                int size = sortedTableGroupIds.length;
+                int i = size;
+                while (i > 0) {
+                    TableGroup g = tableGroupMap.get(sortedTableGroupIds[size - i]);
+                    Assert.notNull(g, "Invalid sorted tableGroup.");
+                    g.setIndex(i);
+                    groupAll.add(g);
+                    i--;
+                }
+            }
+            for (TableGroup g : groupAll) {
+                profileComponent.editConfigModel(g);
+            }
+        }
         return taskService.edit(task);
     }
 
@@ -285,8 +307,8 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public String editTableGroup(Map<String, String> params) {
-        String taskId = params.get("taskId");
-        TableGroup tableGroup = profileComponent.getTableGroup(taskId);
+        String tableGroupId = params.get(ConfigConstant.CONFIG_MODEL_ID);
+        TableGroup tableGroup = profileComponent.getTableGroup(tableGroupId);
         Assert.notNull(tableGroup, "Can not find tableGroup.");
         ValidateSyncTask task = taskService.get(tableGroup.getMappingId());
         // TODO 任务状态执行中
@@ -295,7 +317,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         TableGroup model = (TableGroup) validateSyncTableGroupChecker.checkEditConfigModel(params);
         log(LogType.TableGroupLog.UPDATE, task, tableGroup);
         profileComponent.editTableGroup(model);
-        return taskId;
+        return tableGroupId;
     }
 
     @Override
