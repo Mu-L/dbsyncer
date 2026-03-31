@@ -91,4 +91,25 @@ public interface ValidateSyncService {
      */
     Object result(String id);
 
+    /**
+     * 刷新表列表
+     *
+     * @param id
+     * @return
+     */
+    String refreshTables(String id);
+
+    /**
+     * 刷新表字段
+     *
+     * @param id
+     * @return
+     */
+    String refreshFields(String id);
+
+    String addTableGroup(Map<String, String> params);
+
+    String editTableGroup(Map<String, String> params);
+
+    String removeTableGroup(String id, String ids);
 }

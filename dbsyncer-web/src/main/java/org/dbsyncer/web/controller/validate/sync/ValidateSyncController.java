@@ -189,8 +189,7 @@ public class ValidateSyncController extends BaseController {
     @ResponseBody
     public RestResult refreshTables(@RequestParam(value = "id") String id) {
         try {
-            // TODO
-            return RestResult.restSuccess(200);
+            return RestResult.restSuccess(validateSyncService.refreshTables(id));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
@@ -201,7 +200,7 @@ public class ValidateSyncController extends BaseController {
     @ResponseBody
     public RestResult refreshFields(@RequestParam(value = "id") String id) {
         try {
-            return RestResult.restSuccess(tableGroupService.refreshFields(id));
+            return RestResult.restSuccess(validateSyncService.refreshFields(id));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
@@ -213,8 +212,7 @@ public class ValidateSyncController extends BaseController {
     public RestResult addTableGroup(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
-            // TODO
-            return RestResult.restSuccess(200);
+            return RestResult.restSuccess(validateSyncService.addTableGroup(params));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
@@ -226,8 +224,7 @@ public class ValidateSyncController extends BaseController {
     public RestResult editTableGroup(HttpServletRequest request) {
         try {
             Map<String, String> params = getParams(request);
-            // TODO
-            return RestResult.restSuccess(200);
+            return RestResult.restSuccess(validateSyncService.editTableGroup(params));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());
@@ -238,8 +235,7 @@ public class ValidateSyncController extends BaseController {
     @ResponseBody
     public RestResult removeTableGroup(@RequestParam(value = "id") String id, @RequestParam(value = "ids") String ids) {
         try {
-            // TODO
-            return RestResult.restSuccess(200);
+            return RestResult.restSuccess(validateSyncService.removeTableGroup(id, ids));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

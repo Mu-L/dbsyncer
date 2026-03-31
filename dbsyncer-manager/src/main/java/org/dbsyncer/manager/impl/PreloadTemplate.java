@@ -40,7 +40,6 @@ import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.storage.StorageService;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationListener;
@@ -49,7 +48,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
-
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
@@ -126,6 +124,9 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     public void loadNotificationChannel() {
         try {
             SystemConfig systemConfig = profileComponent.getSystemConfig();
+            if (null == systemConfig) {
+                return;
+            }
             NoticeConfig noticeConfig = systemConfig.getNoticeConfig();
             if (null == noticeConfig) {
                 return;
@@ -224,13 +225,19 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     }
 
     public void reConnect(Mapping mapping) {
-        String sourceInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(mapping.getId(), mapping.getSourceConnectorId(), ConnectorInstanceUtil.SOURCE_SUFFIX);
-        String targetInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(mapping.getId(), mapping.getTargetConnectorId(), ConnectorInstanceUtil.TARGET_SUFFIX);
-        Connector connector = profileComponent.getConnector(mapping.getSourceConnectorId());
-        ConnectorInstance instance = connectorFactory.connect(sourceInstanceId, connector.getConfig(), mapping.getSourceDatabase(), mapping.getSourceSchema());
+        reConnect(mapping.getId(), mapping.getSourceConnectorId(), mapping.getSourceDatabase(), mapping.getSourceSchema(),
+                mapping.getTargetConnectorId(), mapping.getTargetDatabase(), mapping.getTargetSchema());
+    }
+
+    public void reConnect(String uniqueId, String sourceConnectorId, String sourceDatabase, String sourceSchema,
+                          String targetConnectorId, String targetDatabase, String targetSchema) {
+        String sourceInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(uniqueId, sourceConnectorId, ConnectorInstanceUtil.SOURCE_SUFFIX);
+        String targetInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(uniqueId, targetConnectorId, ConnectorInstanceUtil.TARGET_SUFFIX);
+        Connector connector = profileComponent.getConnector(sourceConnectorId);
+        ConnectorInstance instance = connectorFactory.connect(sourceInstanceId, connector.getConfig(), sourceDatabase, sourceSchema);
         Assert.notNull(instance, "Source connector instance can not null");
-        connector = profileComponent.getConnector(mapping.getTargetConnectorId());
-        instance = connectorFactory.connect(targetInstanceId, connector.getConfig(), mapping.getTargetDatabase(), mapping.getTargetSchema());
+        connector = profileComponent.getConnector(targetConnectorId);
+        instance = connectorFactory.connect(targetInstanceId, connector.getConfig(), targetDatabase, targetSchema);
         Assert.notNull(instance, "Target connector instance can not null");
     }
 

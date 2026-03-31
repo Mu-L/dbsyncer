@@ -79,7 +79,7 @@ public class TableGroupChecker extends AbstractChecker {
         Assert.notNull(mapping, "mapping can not be null.");
 
         // 检查是否存在重复映射关系
-        checkRepeatedTable(mappingId, sourceTable, targetTable);
+        checkRepeatedTable(profileComponent.getTableGroupAll(mappingId), sourceTable, targetTable);
 
         // 获取连接器信息
         TableGroup tableGroup = new TableGroup();
@@ -132,7 +132,7 @@ public class TableGroupChecker extends AbstractChecker {
         return tableGroup;
     }
 
-    private Table findTable(List<Table> tables, String tableName, String type) {
+    public Table findTable(List<Table> tables, String tableName, String type) {
         if (!CollectionUtils.isEmpty(tables)) {
             Optional<Table> first = tables.stream().filter(table->table.getName().equals(tableName) && table.getType().equals(type)).findFirst();
             if (first.isPresent()) {
@@ -167,8 +167,12 @@ public class TableGroupChecker extends AbstractChecker {
     private Table updateTableColumn(Mapping mapping, String suffix, String primaryKeyStr, Table table) {
         boolean isSource = StringUtil.equals(ConnectorInstanceUtil.SOURCE_SUFFIX, suffix);
         DefaultConnectorServiceContext context = ConnectorServiceContextUtil.buildConnectorServiceContext(mapping, isSource);
-        context.addTablePattern(table);
+        updateTableColumn(context, primaryKeyStr, table);
+        return table;
+    }
 
+    public Table updateTableColumn(DefaultConnectorServiceContext context, String primaryKeyStr, Table table) {
+        context.addTablePattern(table);
         List<MetaInfo> metaInfos = parserComponent.getMetaInfo(context);
         MetaInfo metaInfo = CollectionUtils.isEmpty(metaInfos) ? null : metaInfos.get(0);
         Assert.notNull(metaInfo, "无法获取连接器表信息");
@@ -188,8 +192,7 @@ public class TableGroupChecker extends AbstractChecker {
         return table;
     }
 
-    private void checkRepeatedTable(String mappingId, String sourceTable, String targetTable) {
-        List<TableGroup> list = profileComponent.getTableGroupAll(mappingId);
+    public void checkRepeatedTable(List<TableGroup> list, String sourceTable, String targetTable) {
         if (!CollectionUtils.isEmpty(list)) {
             for (TableGroup g : list) {
                 // 数据源表和目标表都存在
@@ -202,7 +205,7 @@ public class TableGroupChecker extends AbstractChecker {
         }
     }
 
-    private void matchFieldMapping(TableGroup tableGroup) {
+    public void matchFieldMapping(TableGroup tableGroup) {
         List<Field> sCol = tableGroup.getSourceTable().getColumn();
         List<Field> tCol = tableGroup.getTargetTable().getColumn();
         if (CollectionUtils.isEmpty(sCol) || CollectionUtils.isEmpty(tCol)) {
@@ -239,7 +242,7 @@ public class TableGroupChecker extends AbstractChecker {
         }
     }
 
-    private void matchFieldMapping(TableGroup tableGroup, String fieldMappings) {
+    public void matchFieldMapping(TableGroup tableGroup, String fieldMappings) {
         // A1|A2,B1|B2,|C2
         List<Field> sCol = tableGroup.getSourceTable().getColumn();
         List<Field> tCol = tableGroup.getTargetTable().getColumn();
@@ -300,7 +303,7 @@ public class TableGroupChecker extends AbstractChecker {
      * @param json       [{"source":"id","target":"id"}]
      * @return
      */
-    private void setFieldMapping(TableGroup tableGroup, String json) {
+    public void setFieldMapping(TableGroup tableGroup, String json) {
         List<Map> mappings = JsonUtil.parseList(json);
         if (null == mappings) {
             throw new BizException("映射关系不能为空");

@@ -169,6 +169,10 @@
     }
 
     $(function () {
+        window.backIndexPage = function () {
+            doLoader("/validate-sync/list");
+        };
+
         bindTriggerChange();
 
         $(".validate-sync-item").checkboxGroup({
