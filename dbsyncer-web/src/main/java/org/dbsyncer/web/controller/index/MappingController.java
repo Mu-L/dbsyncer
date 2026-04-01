@@ -79,7 +79,7 @@ public class MappingController extends BaseController {
         return "mapping/customTable";
     }
 
-    @GetMapping("/get")
+    @RequestMapping("/get")
     @ResponseBody
     public RestResult get(@RequestParam(value = "id") String id) {
         try {

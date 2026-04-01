@@ -19,7 +19,8 @@ public final class SqlServerLongType extends LongType {
 
     private enum TypeEnum {
 
-        BIGINT("bigint");
+        BIGINT("bigint"),
+        BIGINT_IDENTITY("bigint identity");
 
         private final String value;
 
