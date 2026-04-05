@@ -3,13 +3,10 @@
  */
 package org.dbsyncer.connector.sqlserver.schema.support;
 
+import microsoft.sql.DateTimeOffset;
 import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.support.TimestampType;
-
-import microsoft.sql.DateTimeOffset;
-
-import microsoft.sql.DateTimeOffset;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
