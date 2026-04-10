@@ -75,6 +75,7 @@ public class ValidateSyncController extends BaseController {
         } else {
             model.put("task", validateSyncService.get(id));
         }
+        initConditionConfig(model);
         return "validate-sync/" + page;
     }
 
