@@ -11,8 +11,11 @@ import org.dbsyncer.sdk.model.Filter;
 
 import org.springframework.beans.BeanUtils;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public abstract class PickerUtil {
@@ -90,5 +93,20 @@ public abstract class PickerUtil {
                 fieldMapping.add(fm);
             }
         }
+    }
+
+    public static List<Field> pickCommonFields(List<Field> column, List<Field> target) {
+        if (CollectionUtils.isEmpty(column) || CollectionUtils.isEmpty(target)) {
+            return target;
+        }
+        List<Field> list = new ArrayList<>();
+        Set<String> keys = new HashSet<>();
+        column.forEach(f->keys.add(f.getName()));
+        target.forEach(f-> {
+            if (keys.contains(f.getName())) {
+                list.add(f);
+            }
+        });
+        return list;
     }
 }

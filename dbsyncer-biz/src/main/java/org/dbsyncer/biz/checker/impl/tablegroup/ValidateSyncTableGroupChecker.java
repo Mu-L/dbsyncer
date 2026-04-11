@@ -97,7 +97,7 @@ public class ValidateSyncTableGroupChecker extends TableGroupChecker {
         // 修改基本配置
         this.modifyConfigModel(tableGroup, params);
 
-        // TODO 过滤条件
+        // 过滤条件
         String filterJson = params.get("filter");
         if (StringUtil.isNotBlank(filterJson)) {
             List<Filter> list = JsonUtil.jsonToArray(filterJson, Filter.class);

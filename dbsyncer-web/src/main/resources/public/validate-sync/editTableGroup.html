@@ -127,6 +127,13 @@
                 <input id="fieldMapping" name="fieldMapping" class="form-control" type="text"/>
             </div>
 
+            <!-- 高级配置区域 -->
+            <h3><i class="fa fa-table text-info"></i> 高级配置</h3>
+            <p class="text-xs text-tertiary">只对当前表映射关系生效，优先级高于上一级的高级配置</p>
+
+            <!-- 过滤条件 -->
+            <div th:replace="validate-sync/editFilter :: content"></div>
+
             <div class="blank-block-md"></div>
         </div>
     </form>

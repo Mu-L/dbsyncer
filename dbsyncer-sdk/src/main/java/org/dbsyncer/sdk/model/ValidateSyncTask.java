@@ -5,6 +5,7 @@ package org.dbsyncer.sdk.model;
 
 import org.dbsyncer.common.enums.CommonTaskTriggerEnum;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ValidateSyncTask extends CommonTask {
@@ -31,6 +32,12 @@ public class ValidateSyncTask extends CommonTask {
 
     // 目标源库表列表
     private List<Table> targetTable;
+
+    // 数据源字段(公共字段)
+    private List<Field> sourceColumn;
+
+    // 过滤条件
+    private List<Filter> filter = new ArrayList<>();
 
     /**
      * 触发方式
@@ -133,6 +140,22 @@ public class ValidateSyncTask extends CommonTask {
 
     public String getTrigger() {
         return trigger;
+    }
+
+    public List<Field> getSourceColumn() {
+        return sourceColumn;
+    }
+
+    public void setSourceColumn(List<Field> sourceColumn) {
+        this.sourceColumn = sourceColumn;
+    }
+
+    public List<Filter> getFilter() {
+        return filter;
+    }
+
+    public void setFilter(List<Filter> filter) {
+        this.filter = filter;
     }
 
     public void setTrigger(String trigger) {
