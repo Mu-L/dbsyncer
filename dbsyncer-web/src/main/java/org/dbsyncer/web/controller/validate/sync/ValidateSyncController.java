@@ -7,6 +7,7 @@ import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.ValidateSyncService;
 import org.dbsyncer.biz.vo.RestResult;
+import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
@@ -234,9 +235,11 @@ public class ValidateSyncController extends BaseController {
 
     @PostMapping("/removeTableGroup")
     @ResponseBody
-    public RestResult removeTableGroup(@RequestParam(value = "id") String id, @RequestParam(value = "ids") String ids) {
+    public RestResult removeTableGroup(
+            @RequestParam(value = "taskId", required = false) String taskId,
+            @RequestParam(value = "ids") String ids) {
         try {
-            return RestResult.restSuccess(validateSyncService.removeTableGroup(id, ids));
+            return RestResult.restSuccess(validateSyncService.removeTableGroup(taskId, ids));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

@@ -29,7 +29,7 @@ public enum StorageEnum {
     /**
      * 订正校验明细
      */
-    VALIDATE_SYNC_DETAIL("validate_sync_detail");
+    VALIDATE_SYNC_DETAIL("task_validata_sync_detail");
 
     private final String type;
 

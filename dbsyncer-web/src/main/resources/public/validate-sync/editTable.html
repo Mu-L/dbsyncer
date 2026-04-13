@@ -182,11 +182,14 @@
                 }
             });
             if (ids.length > 0) {
-                let id = $("#mappingId").val();
+                const taskId = $("#taskId").val();
                 const $btn = $(this);
                 const originalText = $btn.html();
                 $btn.html('<i class="fa fa-spinner fa-spin"></i> 删除中...').prop('disabled', true);
-                doPoster("/validate-sync/removeTableGroup", {"id": id, "ids" : ids.join()}, function (response) {
+                doPoster("/validate-sync/removeTableGroup", {
+                    "taskId": taskId,
+                    "ids": ids.join(",")
+                }, function (response) {
                     $btn.html(originalText).prop('disabled', false);
                     if (response.success === true) {
                         bootGrowl("删除映射关系成功!", "success");

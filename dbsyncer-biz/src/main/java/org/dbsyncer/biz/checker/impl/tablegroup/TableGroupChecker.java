@@ -23,6 +23,7 @@ import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 
 import org.slf4j.Logger;
@@ -161,6 +162,18 @@ public class TableGroupChecker extends AbstractChecker {
         // 合并高级配置
         TableGroup group = PickerUtil.mergeTableGroupConfig(mapping, tableGroup);
         Map<String, String> command = parserComponent.getCommand(mapping, group);
+        tableGroup.setCommand(command);
+    }
+
+    /**
+     * 订正校验任务：合并任务级过滤等与表组配置后
+     *
+     * @param task       订正校验任务
+     * @param tableGroup 已持久化的表组
+     */
+    public void mergeConfig(ValidateSyncTask task, TableGroup tableGroup) {
+        TableGroup group = PickerUtil.mergeTableGroupConfig(task, tableGroup);
+        Map<String, String> command = parserComponent.getCommand(task, group);
         tableGroup.setCommand(command);
     }
 

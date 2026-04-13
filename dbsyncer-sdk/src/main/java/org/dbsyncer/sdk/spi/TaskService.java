@@ -56,4 +56,11 @@ public interface TaskService<T extends CommonTask> {
      * 查看任务结果
      */
     Paging result(String id);
+
+    /**
+     * 检查任务状态
+     * @param taskId
+     * @return
+     */
+    boolean isRunning(String taskId) ;
 }

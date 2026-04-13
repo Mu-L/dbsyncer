@@ -30,6 +30,7 @@ import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.model.ConnectorConfig;
 import org.dbsyncer.sdk.model.MetaInfo;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
@@ -88,8 +89,23 @@ public class ParserComponentImpl implements ParserComponent {
 
     @Override
     public Map<String, String> getCommand(Mapping mapping, TableGroup tableGroup) {
-        ConnectorConfig sConnConfig = getConnectorConfig(mapping.getSourceConnectorId());
-        ConnectorConfig tConnConfig = getConnectorConfig(mapping.getTargetConnectorId());
+        return buildConnectorCommand(mapping.getId(), mapping.getSourceConnectorId(), mapping.getTargetConnectorId(),
+                mapping.getSourceSchema(), mapping.getTargetSchema(), mapping.isForceUpdate(), tableGroup);
+    }
+
+    @Override
+    public Map<String, String> getCommand(ValidateSyncTask task, TableGroup tableGroup) {
+        return buildConnectorCommand(task.getId(), task.getSourceConnectorId(), task.getTargetConnectorId(),
+                task.getSourceSchema(), task.getTargetSchema(), true, tableGroup);
+    }
+
+    /**
+     * 根据驱动/任务 id 与表组构建连接器命令
+     */
+    private Map<String, String> buildConnectorCommand(String mappingId, String sourceConnectorId, String targetConnectorId,
+            String sourceSchema, String targetSchema, boolean forceUpdate, TableGroup tableGroup) {
+        ConnectorConfig sConnConfig = getConnectorConfig(sourceConnectorId);
+        ConnectorConfig tConnConfig = getConnectorConfig(targetConnectorId);
         Table sourceTable = tableGroup.getSourceTable();
         Table targetTable = tableGroup.getTargetTable();
         Table sTable = sourceTable.clone().setColumn(new ArrayList<>());
@@ -105,14 +121,13 @@ public class ParserComponentImpl implements ParserComponent {
                 }
             });
         }
-        String sourceInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(mapping.getId(), mapping.getSourceConnectorId(), ConnectorInstanceUtil.SOURCE_SUFFIX);
-        String targetInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(mapping.getId(), mapping.getTargetConnectorId(), ConnectorInstanceUtil.TARGET_SUFFIX);
+        String sourceInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(mappingId, sourceConnectorId, ConnectorInstanceUtil.SOURCE_SUFFIX);
+        String targetInstanceId = ConnectorInstanceUtil.buildConnectorInstanceId(mappingId, targetConnectorId, ConnectorInstanceUtil.TARGET_SUFFIX);
         ConnectorInstance sourceInstance = connectorFactory.connect(sourceInstanceId);
         ConnectorInstance targetInstance = connectorFactory.connect(targetInstanceId);
-        final CommandConfig sourceConfig = new CommandConfig(sConnConfig.getConnectorType(), mapping.getSourceSchema(), sTable, sourceInstance, tableGroup.getFilter());
-        final CommandConfig targetConfig = new CommandConfig(tConnConfig.getConnectorType(), mapping.getTargetSchema(), tTable, targetInstance, null);
-        targetConfig.setForceUpdate(mapping.isForceUpdate());
-        // 获取连接器同步参数
+        final CommandConfig sourceConfig = new CommandConfig(sConnConfig.getConnectorType(), sourceSchema, sTable, sourceInstance, tableGroup.getFilter());
+        final CommandConfig targetConfig = new CommandConfig(tConnConfig.getConnectorType(), targetSchema, tTable, targetInstance, null);
+        targetConfig.setForceUpdate(forceUpdate);
         return connectorFactory.getCommand(sourceConfig, targetConfig);
     }
 

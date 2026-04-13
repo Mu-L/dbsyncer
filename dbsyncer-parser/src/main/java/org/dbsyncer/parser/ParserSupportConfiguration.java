@@ -89,6 +89,11 @@ public class ParserSupportConfiguration {
             public Paging result(String id) {
                 return null;
             }
+
+            @Override
+            public boolean isRunning(String taskId) {
+                return false;
+            }
         };
     }
 
