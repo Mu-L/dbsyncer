@@ -144,6 +144,13 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     }
 
     @Override
+    public Map<String, String> getSourceCommand(CommandConfig commandConfig) {
+        Map<String, String> sourceCommand = super.getSourceCommand(commandConfig);
+        sourceCommand.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInSql(commandConfig));
+        return sourceCommand;
+    }
+
+    @Override
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) {
         Map<String, String> targetCommand = super.getTargetCommand(commandConfig);
         String tableName = commandConfig.getTable().getName();
@@ -157,6 +164,15 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
             targetCommand.put(ConnectorConstant.OPERTION_INSERT, insert);
         }
         return targetCommand;
+    }
+
+    /**
+     * 构建主键回查SQL模板（WHERE 条件由上层运行时替换）。
+     */
+    private String buildQueryInSql(CommandConfig commandConfig) {
+        String schema = StringUtil.isNotBlank(commandConfig.getSchema()) ? buildWithQuotation(commandConfig.getSchema()) + "." : StringUtil.EMPTY;
+        String tableName = buildWithQuotation(commandConfig.getTable().getName());
+        return "SELECT * FROM " + schema + tableName + " WHERE " + ConnectorConstant.QUERY_IN_CONDITION_PLACEHOLDER;
     }
 
     @Override

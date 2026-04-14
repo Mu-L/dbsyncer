@@ -5,7 +5,9 @@ package org.dbsyncer.sdk.spi;
 
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.sdk.model.CommonTask;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -53,10 +55,15 @@ public interface TaskService<T extends CommonTask> {
     Paging search(Map<String, String> param);
 
     /**
-     * 查看任务结果
+     * 查看任务
      */
     Paging result(String id);
 
+    /**
+     * 获取所有任务
+     * @return
+     */
+    List<ValidateSyncTask> getTaskAll();
     /**
      * 检查任务状态
      * @param taskId

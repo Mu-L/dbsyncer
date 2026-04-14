@@ -55,6 +55,11 @@ public class ValidateSyncTask extends CommonTask {
     private boolean enableSync = false;
 
     /**
+     * 表结构校验
+     */
+    private boolean enableSchema;
+
+    /**
      * 校验范围（行数据）
      */
     private boolean enablerRowData = true;
@@ -73,6 +78,21 @@ public class ValidateSyncTask extends CommonTask {
      * 校验范围（函数）
      */
     private boolean enableFunction = false;
+
+    /**
+     * 批量读取条数（与同步任务 Mapping 含义一致）
+     */
+    private int readNum = 10000;
+
+    /**
+     * 单次写入条数
+     */
+    private int batchNum = 1000;
+
+    /**
+     * 执行线程数
+     */
+    private int threadNum = 10;
 
     public String getSourceConnectorId() {
         return sourceConnectorId;
@@ -208,5 +228,37 @@ public class ValidateSyncTask extends CommonTask {
 
     public void setEnableFunction(boolean enableFunction) {
         this.enableFunction = enableFunction;
+    }
+
+    public int getReadNum() {
+        return readNum;
+    }
+
+    public void setReadNum(int readNum) {
+        this.readNum = readNum;
+    }
+
+    public int getBatchNum() {
+        return batchNum;
+    }
+
+    public void setBatchNum(int batchNum) {
+        this.batchNum = batchNum;
+    }
+
+    public int getThreadNum() {
+        return threadNum;
+    }
+
+    public void setThreadNum(int threadNum) {
+        this.threadNum = threadNum;
+    }
+
+    public boolean isEnableSchema() {
+        return enableSchema;
+    }
+
+    public void setEnableSchema(boolean enableSchema) {
+        this.enableSchema = enableSchema;
     }
 }

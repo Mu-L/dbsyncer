@@ -15,6 +15,7 @@ import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.JsonUtil;
+import org.dbsyncer.common.util.NumberUtil;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.impl.PreloadTemplate;
@@ -452,6 +453,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         task.setEnableIndex(StringUtil.isNotBlank(params.get("enableIndex")));
         task.setEnableTrigger(StringUtil.isNotBlank(params.get("enableTrigger")));
         task.setEnableFunction(StringUtil.isNotBlank(params.get("enableFunction")));
+        task.setReadNum(NumberUtil.toInt(params.get("readNum"), task.getReadNum()));
+        task.setBatchNum(NumberUtil.toInt(params.get("batchNum"), task.getBatchNum()));
+        task.setThreadNum(NumberUtil.toInt(params.get("threadNum"), task.getThreadNum()));
     }
 
     private void log(LogType log, ValidateSyncTask task, TableGroup tableGroup) {
