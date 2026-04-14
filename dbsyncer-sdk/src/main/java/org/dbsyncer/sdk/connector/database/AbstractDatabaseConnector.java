@@ -414,6 +414,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         SqlBuilderConfig buildSqlConfig = new SqlBuilderConfig(this, schema, tableName, primaryKeys, columns, queryFilterSql);
         buildSql(map, SqlBuilderEnum.QUERY, buildSqlConfig);
 
+        map.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInTemplate(SqlBuilderEnum.QUERY.getSqlBuilder().buildQuerySql(buildSqlConfig)));
+
         // 构建游标分页SQL
         buildSql(map, SqlBuilderEnum.QUERY_CURSOR, buildSqlConfig);
         // 记录实际参与游标的主键列表，用于全量同步时获取游标占位符
@@ -443,6 +445,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         }
         PageSql pageSql = new PageSql(querySql, StringUtil.EMPTY, primaryKeys, table.getColumn());
         map.put(SqlBuilderEnum.QUERY.getName(), getPageSql(pageSql));
+        map.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInTemplate(querySql));
 
         // 获取查询总数SQL
         map.put(SqlBuilderEnum.QUERY_COUNT.getName(), "SELECT COUNT(*) FROM (" + querySql + ") DBS_T");
@@ -513,6 +516,17 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             s.append(buildWithQuotation(schema)).append(".");
         }
         return s.toString();
+    }
+
+    /**
+     * 构建 QUERY_IN 模板：
+     * <pre>
+     *     SELECT ... FROM ... [WHERE ...] AND/WHERE __DBSYNCER_IN_CONDITION__
+     * </pre>
+     */
+    private String buildQueryInTemplate(String baseQuerySql) {
+        String whereKeyword = baseQuerySql.toUpperCase().contains(" WHERE ") ? " AND " : " WHERE ";
+        return baseQuerySql + whereKeyword + ConnectorConstant.QUERY_IN_CONDITION_PLACEHOLDER;
     }
 
     /**

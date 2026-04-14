@@ -89,7 +89,7 @@
         </thead>
         <tbody id="conditionList">
             <!-- Mapping filter -->
-            <tr th:if="${tableGroup} == null" th:each="f,s:${mapping?.filter}">
+            <tr th:if="${tableGroup} == null" th:each="f,s:${task?.filter}">
                 <td>
                     [[${f?.operation}]]
                 </td>

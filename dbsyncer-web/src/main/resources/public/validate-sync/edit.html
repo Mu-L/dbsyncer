@@ -78,6 +78,9 @@
             <!-- 高级配置区域 -->
             <h3><i class="fa fa-table text-info"></i> 高级配置</h3>
             <p class="text-xs text-tertiary">对所有表映射关系都生效</p>
+              <!-- 全量配置 -->
+             <div th:replace="validate-sync/editSetting :: content"></div>
+
             <!-- 执行策略选择 -->
             <p><i class="fa fa-history text-success"></i> 执行策略</p>
             <div class="grid grid-cols-4">

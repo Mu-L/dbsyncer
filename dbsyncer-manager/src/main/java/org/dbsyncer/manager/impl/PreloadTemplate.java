@@ -40,6 +40,7 @@ import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
+import org.dbsyncer.sdk.spi.TaskService;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,9 +51,7 @@ import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
 import java.sql.Timestamp;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 
@@ -102,6 +101,9 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
     private boolean preloadCompleted;
 
+    @Resource
+    private TaskService<ValidateSyncTask> taskService;
+
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
         // Load configModels
@@ -115,6 +117,9 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
 
         // Load connectorInstances
         loadConnectorInstance();
+
+        //load ValidateSyncTasks
+        loadValidateSyncTasks();
 
         // Launch drivers
         launch();
@@ -231,8 +236,13 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     }
 
     public void reConnect(ValidateSyncTask task) {
+
+        //源作为查询，目标也需要作为查询 生成sql语句
         reConnect(task.getId(), task.getSourceConnectorId(), task.getSourceDatabase(), task.getSourceSchema(),
                 task.getTargetConnectorId(), task.getTargetDatabase(), task.getTargetSchema());
+
+        reConnect(task.getId(), task.getTargetConnectorId(), task.getTargetDatabase(), task.getTargetSchema(),
+                task.getSourceConnectorId(), task.getSourceDatabase(), task.getSourceSchema());
     }
 
     public void reConnect(String uniqueId, String sourceConnectorId, String sourceDatabase, String sourceSchema,
@@ -315,5 +325,15 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
                 }
             }));
         }
+    }
+
+    private void loadValidateSyncTasks() {
+        List<ValidateSyncTask> taskAll = taskService.getTaskAll();
+        if (CollectionUtils.isEmpty(taskAll)) {
+            return;
+        }
+        taskAll.forEach(task -> {
+            reConnect((ValidateSyncTask) task);
+        });
     }
 }
