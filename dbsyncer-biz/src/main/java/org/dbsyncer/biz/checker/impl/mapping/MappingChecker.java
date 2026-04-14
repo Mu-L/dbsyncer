@@ -63,6 +63,7 @@ public class MappingChecker extends AbstractChecker {
     public ConfigModel checkAddConfigModel(Map<String, String> params) {
         logger.info("params:{}", params);
         String name = params.get(ConfigConstant.CONFIG_MODEL_NAME);
+        Assert.hasText(name, "驱动名称不能为空");
 
         Mapping mapping = new Mapping();
         mapping.setName(name);
