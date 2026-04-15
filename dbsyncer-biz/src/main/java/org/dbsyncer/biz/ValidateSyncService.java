@@ -7,6 +7,7 @@ import org.dbsyncer.biz.vo.ValidateSyncTaskVO;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.parser.model.TableGroup;
 
+import java.util.List;
 import java.util.Map;
 
 public interface ValidateSyncService {
@@ -106,6 +107,21 @@ public interface ValidateSyncService {
      * @return
      */
     String refreshFields(String id);
+
+    /**
+     * 获取所有任务列表（用于下拉选择）
+     *
+     * @return 任务VO列表
+     */
+    List<ValidateSyncTaskVO> getAll();
+
+    /**
+     * 分页查询校验结果明细
+     *
+     * @param params 包含 taskId、pageNum、pageSize
+     * @return 分页结果
+     */
+    Paging searchResult(Map<String, String> params);
 
     String addTableGroup(Map<String, String> params);
 

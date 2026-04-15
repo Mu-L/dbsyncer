@@ -69,7 +69,10 @@ public class ValidateSyncController extends BaseController {
      */
     @GetMapping("/page/{page}")
     public String pageEdit(ModelMap model, @PathVariable("page") String page, @RequestParam("id") String id) {
-        if (page.equals("editTableGroup")) {
+        if (page.equals("detail")) {
+            model.put("taskId", id);
+            model.put("taskList", validateSyncService.getAll());
+        } else if (page.equals("editTableGroup")) {
             TableGroup tableGroup = tableGroupService.getTableGroup(id);
             model.put("tableGroup", tableGroup);
             model.put("task", validateSyncService.get(tableGroup.getMappingId()));
@@ -254,6 +257,21 @@ public class ValidateSyncController extends BaseController {
     public RestResult result(@RequestParam(value = "id") String id) {
         try {
             return RestResult.restSuccess(validateSyncService.result(id));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    /**
+     * 分页查询校验结果明细
+     */
+    @PostMapping("/searchResult")
+    @ResponseBody
+    public RestResult searchResult(HttpServletRequest request) {
+        try {
+            Map<String, String> params = getParams(request);
+            return RestResult.restSuccess(validateSyncService.searchResult(params));
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

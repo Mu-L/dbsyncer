@@ -293,6 +293,21 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
     }
 
     @Override
+    public List<ValidateSyncTaskVO> getAll() {
+        return taskService.getTaskAll().stream()
+                .map(this::convertTask2Vo)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Paging searchResult(Map<String, String> params) {
+        String taskId = params.get("taskId");
+        Assert.hasText(taskId, "taskId is required.");
+        return taskService.result(taskId);
+    }
+
+    @Override
     public String refreshTables(String id) {
         ValidateSyncTask task = taskService.get(id);
         Assert.notNull(task, "The task id is invalid.");

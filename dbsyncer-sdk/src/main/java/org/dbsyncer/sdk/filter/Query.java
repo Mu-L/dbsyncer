@@ -9,6 +9,8 @@ import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.impl.IntFilter;
 import org.dbsyncer.sdk.filter.impl.StringFilter;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -41,6 +43,11 @@ public class Query {
      * 修改时间和创建默认降序返回
      */
     private SortEnum sort = SortEnum.DESC;
+
+    /**
+     * 自定义排序字段列表，非空时优先使用，为空时走默认排序逻辑
+     */
+    private List<OrderBy> orderByList = new ArrayList<>();
 
     /**
      * 返回值转换器，限Disk使用
@@ -123,11 +130,64 @@ public class Query {
         this.sort = sort;
     }
 
+    public List<OrderBy> getOrderByList() {
+        return orderByList;
+    }
+
+    /**
+     * 添加自定义排序字段（使用指定排序方向）
+     *
+     * @param fieldName 字段名（驼峰格式，如 createTime）
+     * @param sort      排序方向
+     */
+    public void addOrderBy(String fieldName, SortEnum sort) {
+        orderByList.add(new OrderBy(fieldName, sort));
+    }
+
+    /**
+     * 添加自定义排序字段（使用 Query 全局排序方向）
+     *
+     * @param fieldName 字段名（驼峰格式，如 createTime）
+     */
+    public void addOrderBy(String fieldName) {
+        orderByList.add(new OrderBy(fieldName, null));
+    }
+
+    public boolean hasCustomOrderBy() {
+        return !orderByList.isEmpty();
+    }
+
     public Map<String, FieldResolver> getFieldResolverMap() {
         return fieldResolverMap;
     }
 
     public void setFieldResolverMap(Map<String, FieldResolver> fieldResolverMap) {
         this.fieldResolverMap = fieldResolverMap;
+    }
+
+    /**
+     * 排序字段描述，支持每个字段独立指定排序方向
+     */
+    public static class OrderBy {
+
+        private final String fieldName;
+
+        /**
+         * 为 null 时跟随 Query 全局排序方向
+         */
+        private final SortEnum sort;
+
+        public OrderBy(String fieldName, SortEnum sort) {
+            this.fieldName = fieldName;
+            this.sort = sort;
+        }
+
+        public String getFieldName() {
+            return fieldName;
+        }
+
+        public SortEnum getSort() {
+            return sort;
+        }
     }
 }

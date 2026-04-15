@@ -240,17 +240,36 @@ public class MySQLStorageService extends AbstractStorageService {
     private String buildQuerySql(Query query, Executor executor, List<Object> args, List<AbstractFilter> highLightKeys) {
         StringBuilder sql = new StringBuilder(executor.getQuery());
         buildQuerySqlWithParams(query, args, sql, highLightKeys);
-        // order by updateTime,createTime desc
         sql.append(" order by ");
+        if (query.hasCustomOrderBy()) {
+            buildCustomOrderBy(query, sql);
+        } else {
+            buildDefaultOrderBy(query, executor, sql);
+        }
+        sql.append(DatabaseConstant.MYSQL_PAGE_SQL);
+        args.add((query.getPageNum() - 1) * query.getPageSize());
+        args.add(query.getPageSize());
+        return sql.toString();
+    }
+
+    private void buildCustomOrderBy(Query query, StringBuilder sql) {
+        List<Query.OrderBy> orderByList = query.getOrderByList();
+        for (int i = 0; i < orderByList.size(); i++) {
+            if (i > 0) {
+                sql.append(StringUtil.COMMA);
+            }
+            Query.OrderBy orderBy = orderByList.get(i);
+            sql.append(UnderlineToCamelUtils.camelToUnderline(orderBy.getFieldName()));
+            sql.append(" ").append(orderBy.getSort() != null ? orderBy.getSort().getCode() : query.getSort().getCode());
+        }
+    }
+
+    private void buildDefaultOrderBy(Query query, Executor executor, StringBuilder sql) {
         if (executor.isOrderByUpdateTime()) {
             sql.append(UnderlineToCamelUtils.camelToUnderline(ConfigConstant.CONFIG_MODEL_UPDATE_TIME)).append(StringUtil.COMMA);
         }
         sql.append(UnderlineToCamelUtils.camelToUnderline(ConfigConstant.CONFIG_MODEL_CREATE_TIME));
         sql.append(" ").append(query.getSort().getCode());
-        sql.append(DatabaseConstant.MYSQL_PAGE_SQL);
-        args.add((query.getPageNum() - 1) * query.getPageSize());
-        args.add(query.getPageSize());
-        return sql.toString();
     }
 
     private String buildQueryCountSql(Query query, Executor executor, List<Object> args) {
