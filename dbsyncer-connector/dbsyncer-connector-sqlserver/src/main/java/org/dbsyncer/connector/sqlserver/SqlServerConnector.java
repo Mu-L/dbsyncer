@@ -144,13 +144,6 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public Map<String, String> getSourceCommand(CommandConfig commandConfig) {
-        Map<String, String> sourceCommand = super.getSourceCommand(commandConfig);
-        sourceCommand.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInSql(commandConfig));
-        return sourceCommand;
-    }
-
-    @Override
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) {
         Map<String, String> targetCommand = super.getTargetCommand(commandConfig);
         String tableName = commandConfig.getTable().getName();
@@ -163,6 +156,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
                     + String.format(SET_TABLE_IDENTITY_OFF, commandConfig.getSchema(), tableName);
             targetCommand.put(ConnectorConstant.OPERTION_INSERT, insert);
         }
+        targetCommand.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInSql(commandConfig));
         return targetCommand;
     }
 
