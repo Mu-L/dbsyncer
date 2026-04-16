@@ -31,8 +31,11 @@
                         <label class="form-label">
                             <i class="fa fa-database text-primary"></i> 数据源<strong class="text-primary">*</strong>
                         </label>
-                        <select name="sourceConnectorId" id="sourceConnectorId" class="form-control" th:data-connector-id="${mapping?.sourceConnectorId}">
-                            <option th:each="c,s:${connectors}" th:value="${c?.id}" th:if="${c?.config?.connectorType eq mapping?.sourceConnector?.config?.connectorType}" th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" />
+                        <select name="sourceConnectorId" id="sourceConnectorId" class="form-control">
+                            <option th:each="c,s:${connectors}"
+                                    th:value="${c?.id}" th:if="${c?.config?.connectorType eq mapping?.sourceConnector?.config?.connectorType}"
+                                    th:selected="${c?.id eq mapping?.sourceConnectorId}"
+                                    th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" />
                         </select>
                     </div>
                     <div class="form-item mb-4">
@@ -56,8 +59,11 @@
                         <label class="form-label">
                             <i class="fa fa-database text-success"></i> 目标源<strong class="text-primary">*</strong>
                         </label>
-                        <select name="targetConnectorId" id="targetConnectorId" class="form-control" th:data-connector-id="${mapping?.targetConnectorId}">
-                            <option th:each="c,s:${connectors}" th:value="${c?.id}" th:if="${c?.config?.connectorType eq mapping?.targetConnector?.config?.connectorType}" th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" />
+                        <select name="targetConnectorId" id="targetConnectorId" class="form-control">
+                            <option th:each="c,s:${connectors}" th:value="${c?.id}"
+                                    th:if="${c?.config?.connectorType eq mapping?.targetConnector?.config?.connectorType}"
+                                    th:selected="${c?.id eq mapping?.targetConnectorId}"
+                                    th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" />
                         </select>
                     </div>
                     <div class="form-item mb-4">
