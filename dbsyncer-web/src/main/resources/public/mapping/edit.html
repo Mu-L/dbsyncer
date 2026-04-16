@@ -33,7 +33,8 @@
                         </label>
                         <select name="sourceConnectorId" id="sourceConnectorId" class="form-control">
                             <option th:each="c,s:${connectors}"
-                                    th:value="${c?.id}" th:if="${c?.config?.connectorType eq mapping?.sourceConnector?.config?.connectorType}"
+                                    th:value="${c?.id}"
+                                    th:disabled="${c?.config?.connectorType != mapping?.sourceConnector?.config?.connectorType}"
                                     th:selected="${c?.id eq mapping?.sourceConnectorId}"
                                     th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" />
                         </select>
@@ -61,7 +62,7 @@
                         </label>
                         <select name="targetConnectorId" id="targetConnectorId" class="form-control">
                             <option th:each="c,s:${connectors}" th:value="${c?.id}"
-                                    th:if="${c?.config?.connectorType eq mapping?.targetConnector?.config?.connectorType}"
+                                    th:disabled="${c?.config?.connectorType != mapping?.targetConnector?.config?.connectorType}"
                                     th:selected="${c?.id eq mapping?.targetConnectorId}"
                                     th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" />
                         </select>
