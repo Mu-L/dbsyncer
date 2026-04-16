@@ -7,15 +7,19 @@ import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.flush.impl.TableGroupBufferActuator;
 import org.dbsyncer.sdk.model.CommonTask;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.spi.ServiceFactory;
 import org.dbsyncer.sdk.spi.TableGroupBufferActuatorService;
 import org.dbsyncer.sdk.spi.TaskService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
 import javax.annotation.Resource;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -28,6 +32,9 @@ public class ParserSupportConfiguration {
 
     @Resource
     private ServiceFactory serviceFactory;
+
+    @Resource
+    private AutowireCapableBeanFactory beanFactory;
 
     @Bean
     @ConditionalOnMissingBean
@@ -46,6 +53,8 @@ public class ParserSupportConfiguration {
     public TaskService taskService() {
         TaskService taskService = serviceFactory.get(TaskService.class);
         if (taskService != null) {
+            beanFactory.autowireBean(taskService);
+            beanFactory.initializeBean(taskService, "taskServiceImpl");
             return taskService;
         }
         return new TaskService<CommonTask>() {
@@ -91,8 +100,18 @@ public class ParserSupportConfiguration {
             }
 
             @Override
+            public List<ValidateSyncTask> getTaskAll() {
+                return Collections.emptyList();
+            }
+
+            @Override
             public boolean isRunning(String taskId) {
                 return false;
+            }
+
+            @Override
+            public void clearResult(String taskId) {
+
             }
         };
     }

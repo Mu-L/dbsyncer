@@ -241,8 +241,6 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
         reConnect(task.getId(), task.getSourceConnectorId(), task.getSourceDatabase(), task.getSourceSchema(),
                 task.getTargetConnectorId(), task.getTargetDatabase(), task.getTargetSchema());
 
-        reConnect(task.getId(), task.getTargetConnectorId(), task.getTargetDatabase(), task.getTargetSchema(),
-                task.getSourceConnectorId(), task.getSourceDatabase(), task.getSourceSchema());
     }
 
     public void reConnect(String uniqueId, String sourceConnectorId, String sourceDatabase, String sourceSchema,
