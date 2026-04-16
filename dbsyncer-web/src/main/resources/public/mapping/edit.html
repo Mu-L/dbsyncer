@@ -36,7 +36,7 @@
                                     th:value="${c?.id}"
                                     th:disabled="${c?.config?.connectorType != mapping?.sourceConnector?.config?.connectorType}"
                                     th:selected="${c?.id eq mapping?.sourceConnectorId}"
-                                    th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" />
+                                    th:text="${c?.name + '(' + c?.config?.connectorType + (c?.config?.connectorType != mapping?.sourceConnector?.config?.connectorType ? '与源类型不同' : '') + ')'}" />
                         </select>
                     </div>
                     <div class="form-item mb-4">
@@ -64,7 +64,7 @@
                             <option th:each="c,s:${connectors}" th:value="${c?.id}"
                                     th:disabled="${c?.config?.connectorType != mapping?.targetConnector?.config?.connectorType}"
                                     th:selected="${c?.id eq mapping?.targetConnectorId}"
-                                    th:text="${c?.name + '(' + c?.config?.connectorType + ')'}" />
+                                    th:text="${c?.name + '(' + c?.config?.connectorType + (c?.config?.connectorType != mapping?.targetConnector?.config?.connectorType ? '与目标类型不一致' : '') + ')'}" />
                         </select>
                     </div>
                     <div class="form-item mb-4">
