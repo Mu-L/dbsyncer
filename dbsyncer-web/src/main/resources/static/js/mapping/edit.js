@@ -123,7 +123,6 @@ function initDBSelect($connector, $database, $schema) {
     // 为每个 select 组维护独立的连接器ID，避免上下文串用
     let currentConnectorId = null;
 
-    const schemaSelect = $schema.dbSelect({});
     let connectorSelect = $connector.dbSelect({
         type: 'single',
         onSelect: function (connectorId) {
@@ -132,8 +131,13 @@ function initDBSelect($connector, $database, $schema) {
             onConnectorChange(currentConnectorId, dbSelect);
         }
     });
+    const schemaSelect = $schema.dbSelect({
+        type: 'single',
+        defaultValue: [$schema.data("schema")]
+    });
     const dbSelect = $database.dbSelect({
         type: 'single',
+        defaultValue: [$database.data("database")],
         onSelect: function (selected) {
             if (currentConnectorId) {
                 onDBChange(currentConnectorId, schemaSelect, selected.length >= 1 ? selected[0] : '');
