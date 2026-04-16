@@ -113,6 +113,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             task.setTargetDatabase(mapping.getTargetDatabase());
             task.setTargetSchema(mapping.getTargetSchema());
             task.setTargetTable(deepCopy(mapping.getTargetTable()));
+            task.setReadNum(mapping.getReadNum());
+            task.setBatchNum(mapping.getBatchNum());
+            task.setThreadNum(mapping.getThreadNum());
             // 复制表组列表
             List<TableGroup> tableGroupAll = tableGroupService.getTableGroupAll(mappingId);
             if (!CollectionUtils.isEmpty(tableGroupAll)) {
@@ -305,6 +308,12 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         String taskId = params.get("taskId");
         Assert.hasText(taskId, "taskId is required.");
         return taskService.result(taskId);
+    }
+
+    @Override
+    public void clearResult(String taskId) {
+        Assert.hasText(taskId, "taskId is required.");
+        taskService.clearResult(taskId);
     }
 
     @Override

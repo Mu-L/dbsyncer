@@ -481,6 +481,9 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         buildSql(map, SqlBuilderEnum.DELETE, config);
 
         map.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInTemplate(SqlBuilderEnum.QUERY.getSqlBuilder().buildQuerySql(config)));
+
+        map.put(SqlBuilderEnum.TARGET_QUERY_COUNT.getName(), getQueryCountSql(config));
+
         return map;
     }
 

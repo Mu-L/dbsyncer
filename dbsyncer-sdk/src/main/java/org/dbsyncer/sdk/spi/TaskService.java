@@ -69,5 +69,12 @@ public interface TaskService<T extends CommonTask> {
      * @param taskId
      * @return
      */
-    boolean isRunning(String taskId) ;
+    boolean isRunning(String taskId);
+
+    /**
+     * 清空指定任务的校验结果明细
+     *
+     * @param taskId 任务ID
+     */
+    void clearResult(String taskId);
 }

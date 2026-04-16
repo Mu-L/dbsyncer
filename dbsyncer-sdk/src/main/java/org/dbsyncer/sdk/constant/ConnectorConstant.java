@@ -69,6 +69,11 @@ public class ConnectorConstant {
     public static final String OPERTION_QUERY_COUNT = "QUERY_COUNT";
 
     /**
+     * 目标表查询总数
+     */
+    public static final String TARGET_QUERY_COUNT = "TARGET_QUERY_COUNT";
+
+    /**
      * 主表，扩展表映射关系
      * <p>场景1:支持自定义SQL作为新表，需要根据主表监听增量数据
      * <p>场景2:支持自定义半结构化字段作为新表，需要根据Topic（Kafka），FileName（File）监听增量数据
