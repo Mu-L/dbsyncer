@@ -36,6 +36,8 @@
             params: options.params || {},
             pageIndex: options.pageIndex || 1,
             pageSize: options.pageSize || 5,
+            customPageSize: options.customPageSize || false,
+            customPageSizeItems: options.customPageSizeItems || [5, 10, 50, 100, 200],
             refreshCompleted: options.refreshCompleted || function() {}
         };
 
@@ -162,6 +164,41 @@
             const paginationBar = $(config.paginationSelector).find(".pagination-bar");
             const paginationBtns = pagination.find('.pagination-btn');
             paginationBtns.remove();
+
+            let $this = this;
+            if (config.customPageSize) {
+                // 检查下拉框是否已存在，如果存在则更新选中状态，不存在则创建
+                let $sizeSelect = paginationBar.find('.page-size-select');
+                if ($sizeSelect.length === 0) {
+                    // 定义可选的每页条数
+                    const currentSize = config.pageSize;
+                    // 创建下拉框 HTML
+                    let selectHtml = '<select class="page-size-select ml-2 mr-2 form-control-md">';
+                    config.customPageSizeItems.forEach(size => {
+                        const selected = size === currentSize ? 'selected' : '';
+                        selectHtml += `<option value="${size}" ${selected}>${size}条/页</option>`;
+                    });
+                    selectHtml += '</select>';
+                    const $sizeSelect = $(selectHtml);
+                    paginationBar.append($sizeSelect);
+                    $sizeSelect.dbSelect({
+                        type: 'single',
+                        onSelect: function (values) {
+                            const selectedValue = values && values.length > 0 ? values[0] : '';
+                            if (!isBlank(selectedValue)) {
+                                const newSize = parseInt(selectedValue);
+                                // 更新配置中的 pageSize
+                                config.pageSize = newSize;
+                                // 重置到第一页并重新搜索
+                                $this.doSearch({}, 1);
+                            }
+                        }
+                    });
+                } else {
+                    // 如果下拉框已存在，仅更新选中值 (防止定时刷新导致选中状态丢失)
+                    $sizeSelect.val(config.pageSize);
+                }
+            }
 
             // 上一页按钮
             const prevBtn = $(`<button type="button" class="pagination-btn" ${currentPage === 1 ? 'disabled' : ''}>
