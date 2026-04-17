@@ -467,7 +467,7 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         String schema = buildSchemaWithQuotation(commandConfig.getSchema());
         // 同步字段
         List<Field> column = filterColumn(table.getColumn());
-        SqlBuilderConfig config = new SqlBuilderConfig(this, schema, tableName, primaryKeys, column, null);
+        SqlBuilderConfig config = new SqlBuilderConfig(this, schema, tableName, primaryKeys, column, "");
 
         // 获取增删改SQL
         Map<String, String> map = new HashMap<>();

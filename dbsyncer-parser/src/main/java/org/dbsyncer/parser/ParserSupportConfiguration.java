@@ -12,7 +12,6 @@ import org.dbsyncer.sdk.spi.ServiceFactory;
 import org.dbsyncer.sdk.spi.TableGroupBufferActuatorService;
 import org.dbsyncer.sdk.spi.TaskService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -33,9 +32,6 @@ public class ParserSupportConfiguration {
     @Resource
     private ServiceFactory serviceFactory;
 
-    @Resource
-    private AutowireCapableBeanFactory beanFactory;
-
     @Bean
     @ConditionalOnMissingBean
     @DependsOn(value = "serviceFactory")
@@ -53,8 +49,7 @@ public class ParserSupportConfiguration {
     public TaskService taskService() {
         TaskService taskService = serviceFactory.get(TaskService.class);
         if (taskService != null) {
-            beanFactory.autowireBean(taskService);
-            beanFactory.initializeBean(taskService, "taskServiceImpl");
+            // 作为 @Bean 返回，Spring 会自动完成 @Resource 注入与 @PostConstruct 回调
             return taskService;
         }
         return new TaskService<CommonTask>() {

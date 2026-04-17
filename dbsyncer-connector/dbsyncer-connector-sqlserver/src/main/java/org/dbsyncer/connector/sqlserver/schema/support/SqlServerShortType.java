@@ -6,8 +6,10 @@ package org.dbsyncer.connector.sqlserver.schema.support;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.support.ShortType;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @Author 穿云
@@ -16,6 +18,21 @@ import java.util.Set;
  */
 public final class SqlServerShortType extends ShortType {
 
+
+    private enum TypeEnum {
+        SMALLINT("smallint"),
+        SHORT("SHORT");
+
+        private final String value;
+
+        TypeEnum(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+    }
     @Override
     protected Short merge(Object val, Field field) {
         return throwUnsupportedException(val, field);
@@ -23,8 +40,6 @@ public final class SqlServerShortType extends ShortType {
 
     @Override
     public Set<String> getSupportedTypeName() {
-        Set<String> types = new HashSet<>();
-        types.add(getType().name());
-        return types;
+        return Arrays.stream(TypeEnum.values()).map(TypeEnum::getValue).collect(Collectors.toSet());
     }
 }

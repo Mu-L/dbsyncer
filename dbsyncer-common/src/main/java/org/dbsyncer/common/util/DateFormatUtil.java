@@ -7,6 +7,7 @@ import org.dbsyncer.common.CommonException;
 import org.dbsyncer.common.column.Lexer;
 
 import java.sql.Date;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -40,6 +41,7 @@ public abstract class DateFormatUtil {
     public static final String PATTERN_YYYYMMDD = "yyyyMMdd";
     public static final String PATTERN_YYYYMMDDHHMMSS = "yyyyMMddHHmmss";
     public static final String PATTERN_YYYYMMDDHHMMSSSSS = "yyyyMMddHHmmssSSS";
+    public static final String PATTERN_HH_MM_SS = "HH:mm:ss";
 
     public static final DateTimeFormatter YYYY_MM_DD = DateTimeFormatter.ofPattern(PATTERN_YYYY_MM_DD);
     public static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS = DateTimeFormatter.ofPattern(PATTERN_YYYY_MM_DD_HH_MM_SS);
@@ -92,6 +94,14 @@ public abstract class DateFormatUtil {
 
     public static String dateToString(Date date) {
         return date.toLocalDate().format(YYYY_MM_DD);
+    }
+
+    public static String timeToString(Time time) {
+        if (time == null) {
+            return null;
+        }
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern(PATTERN_HH_MM_SS);
+        return time.toLocalTime().format(fmt);
     }
 
     public static String dateToString(java.util.Date date) {

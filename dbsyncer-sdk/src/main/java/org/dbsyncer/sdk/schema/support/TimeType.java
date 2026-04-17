@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.sdk.schema.support;
 
+import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.sdk.enums.DataTypeEnum;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.AbstractDataType;
@@ -24,7 +25,7 @@ public abstract class TimeType extends AbstractDataType<Time> {
     @Override
     protected Object convert(Object val, Field field) {
         if (val instanceof Time) {
-            return val;
+            return DateFormatUtil.timeToString((Time) val);
         }
         return throwUnsupportedException(val, field);
     }

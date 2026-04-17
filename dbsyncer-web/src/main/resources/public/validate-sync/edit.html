@@ -113,17 +113,22 @@
                     <input type="checkbox" name="enablerRowData" class="validate-sync-item" value="true" th:checked="${task?.enablerRowData}" />
                 </div>
                 <div class="form-item">
-                    <label class="form-label">索引</label>
-                    <input type="checkbox" name="enableIndex" class="validate-sync-item" value="true" th:checked="${task?.enableIndex}" />
+                    <label class="form-label">表结构</label>
+                    <input type="checkbox" name="enableSchema" class="validate-sync-item" value="true" th:checked="${task?.enableSchema}" />
                 </div>
-                <div class="form-item">
-                    <label class="form-label">触发器</label>
-                    <input type="checkbox" name="enableTrigger" class="validate-sync-item" value="true" th:checked="${task?.enableTrigger}" />
-                </div>
-                <div class="form-item">
-                    <label class="form-label">函数</label>
-                    <input type="checkbox" name="enableFunction" class="validate-sync-item" value="true" th:checked="${task?.enableFunction}" />
-                </div>
+
+<!--                <div class="form-item">-->
+<!--                    <label class="form-label">索引</label>-->
+<!--                    <input type="checkbox" name="enableIndex" class="validate-sync-item" value="true" th:checked="${task?.enableIndex}" />-->
+<!--                </div>-->
+<!--                <div class="form-item">-->
+<!--                    <label class="form-label">触发器</label>-->
+<!--                    <input type="checkbox" name="enableTrigger" class="validate-sync-item" value="true" th:checked="${task?.enableTrigger}" />-->
+<!--                </div>-->
+<!--                <div class="form-item">-->
+<!--                    <label class="form-label">函数</label>-->
+<!--                    <input type="checkbox" name="enableFunction" class="validate-sync-item" value="true" th:checked="${task?.enableFunction}" />-->
+<!--                </div>-->
             </div>
 
             <!-- 过滤条件 -->
