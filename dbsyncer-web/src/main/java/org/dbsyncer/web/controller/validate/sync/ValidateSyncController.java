@@ -293,4 +293,22 @@ public class ValidateSyncController extends BaseController {
         }
     }
 
+    /**
+     * 按明细 ID 查询单条校验结果（含完整 CONTENT），供详情弹窗使用。
+     */
+    @PostMapping("/searchResultDetail")
+    @ResponseBody
+    public RestResult searchResultDetail(@RequestParam("id") String id) {
+        try {
+            Object detail = validateSyncService.getValidateResultDetail(id);
+            if (detail == null) {
+                return RestResult.restFail("记录不存在", 404);
+            }
+            return RestResult.restSuccess(detail);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
 }

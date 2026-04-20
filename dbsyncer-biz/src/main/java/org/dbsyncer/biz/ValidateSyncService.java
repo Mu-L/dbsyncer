@@ -118,10 +118,18 @@ public interface ValidateSyncService {
     /**
      * 分页查询校验结果明细
      *
-     * @param params 包含 taskId、pageNum、pageSize
+     * @param params 包含 taskId、pageNum、pageSize；可选 lite=true 列表不查 CONTENT
      * @return 分页结果
      */
     Paging searchResult(Map<String, String> params);
+
+    /**
+     * 按明细主键查询单条（含完整 CONTENT）。
+     *
+     * @param id 明细 ID
+     * @return 单条 Map，不存在返回 null
+     */
+    Object getValidateResultDetail(String id);
 
     /**
      * 清空指定任务的校验结果明细

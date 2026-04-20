@@ -12,6 +12,7 @@ import org.dbsyncer.connector.mysql.MySQLException;
 import org.dbsyncer.sdk.NullExecutorException;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.config.SqlBuilderConfig;
+import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.DatabaseConstant;
@@ -38,8 +39,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -238,7 +241,7 @@ public class MySQLStorageService extends AbstractStorageService {
     }
 
     private String buildQuerySql(Query query, Executor executor, List<Object> args, List<AbstractFilter> highLightKeys) {
-        StringBuilder sql = new StringBuilder(executor.getQuery());
+        StringBuilder sql = new StringBuilder(buildSelectFromSql(query, executor));
         buildQuerySqlWithParams(query, args, sql, highLightKeys);
         sql.append(" order by ");
         if (query.hasCustomOrderBy()) {
@@ -250,6 +253,47 @@ public class MySQLStorageService extends AbstractStorageService {
         args.add((query.getPageNum() - 1) * query.getPageSize());
         args.add(query.getPageSize());
         return sql.toString();
+    }
+
+    /**
+     * 可自定义 select 字段查询结果
+     */
+    private String buildSelectFromSql(Query query, Executor executor) {
+        if (!query.hasSelectProjection()) {
+            return executor.getQuery();
+        }
+        Set<String> include = null;
+        if (query.hasIncludeSelectLabels()) {
+            include = new HashSet<>(query.getIncludeSelectLabels());
+        }
+        Set<String> exclude = null;
+        if (include == null && !query.getExcludeSelectLabels().isEmpty()) {
+            exclude = new HashSet<>(query.getExcludeSelectLabels());
+        }
+        Database database = connector;
+        List<String> fs = new ArrayList<>();
+        for (Field f : executor.getFields()) {
+            String label = f.getLabelName();
+            if (include != null) {
+                if (!include.contains(label)) {
+                    continue;
+                }
+            } else if (exclude != null && exclude.contains(label)) {
+                continue;
+            }
+            if (StringUtil.isNotBlank(label)) {
+                fs.add(database.buildWithQuotation(f.getName()) + " AS " + label);
+                continue;
+            }
+            if (database.buildCustom(fs, f)) {
+                continue;
+            }
+            fs.add(database.buildWithQuotation(f.getName()));
+        }
+        if (fs.isEmpty()) {
+            return executor.getQuery();
+        }
+        return String.format("SELECT %s FROM %s", StringUtil.join(fs, StringUtil.COMMA), database.buildWithQuotation(executor.getTable()));
     }
 
     private void buildCustomOrderBy(Query query, StringBuilder sql) {
@@ -383,8 +427,9 @@ public class MySQLStorageService extends AbstractStorageService {
 
         List<Field> taskFields = builder.getFields();
 
-        // 数据校验明细
+        // 数据校验明细（列顺序与 dbsyncer_mysql_task_validata_sync_detail.sql 一致）
         builder.build(ConfigConstant.CONFIG_MODEL_ID, ConfigConstant.TASK_ID, ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.TASK_SOURCE_TABLE_NAME, ConfigConstant.DATA_TARGET_TABLE_NAME,
+                ConfigConstant.TASK_SOURCE_TOTAL, ConfigConstant.TASK_TARGET_TOTAL, ConfigConstant.TASK_DIFF_TOTAL, ConfigConstant.TASK_FIXED_TOTAL,
                 ConfigConstant.TASK_CONTENT, ConfigConstant.CONFIG_MODEL_CREATE_TIME, ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
         List<Field> dataVerifyDetailFields = builder.getFields();
 
@@ -506,7 +551,9 @@ public class MySQLStorageService extends AbstractStorageService {
                             Types.VARCHAR), new Field(ConfigConstant.DATA_EVENT, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_ERROR, "LONGVARCHAR",
                             Types.LONGVARCHAR), new Field(ConfigConstant.BINLOG_DATA, "VARBINARY", Types.BLOB), new Field(ConfigConstant.TASK_ID, "VARCHAR",
                             Types.VARCHAR), new Field(ConfigConstant.TASK_STATUS, "INTEGER", Types.INTEGER), new Field(ConfigConstant.TASK_SOURCE_TABLE_NAME, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.TASK_CONTENT, "VARCHAR", Types.VARCHAR))
+                            Types.VARCHAR), new Field(ConfigConstant.TASK_SOURCE_TOTAL, "BIGINT", Types.BIGINT), new Field(ConfigConstant.TASK_TARGET_TOTAL, "BIGINT", Types.BIGINT),
+                            new Field(ConfigConstant.TASK_DIFF_TOTAL, "BIGINT", Types.BIGINT), new Field(ConfigConstant.TASK_FIXED_TOTAL, "BIGINT", Types.BIGINT),
+                            new Field(ConfigConstant.TASK_CONTENT, "LONGVARCHAR", Types.LONGVARCHAR))
                     .peek(field -> {
                         field.setLabelName(field.getName());
                         // 转换列下划线

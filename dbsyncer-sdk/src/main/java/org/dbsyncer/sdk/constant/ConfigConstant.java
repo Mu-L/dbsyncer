@@ -54,5 +54,15 @@ public class ConfigConstant {
 
     public static final String TASK_ID = "taskId";
     public static final String TASK_SOURCE_TABLE_NAME = "sourceTableName";
+
+    public static final String TASK_SOURCE_TOTAL = "sourceTotal";
+
+    public static final String TASK_TARGET_TOTAL = "targetTotal";
+
+    public static final String TASK_DIFF_TOTAL = "diffTotal";
+
+    public static final String TASK_FIXED_TOTAL = "fixedTotal";
+
     public static final String TASK_CONTENT = "content";
+
 }

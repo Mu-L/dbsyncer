@@ -33,12 +33,16 @@ import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.DefaultConnectorServiceContext;
 import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.sdk.enums.SortEnum;
+import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
+import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.spi.TaskService;
+import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +66,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Resource
     private TaskService<ValidateSyncTask> taskService;
+
+    @Resource
+    private StorageService storageService;
 
     @Resource
     private ProfileComponent profileComponent;
@@ -307,7 +314,25 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
     public Paging searchResult(Map<String, String> params) {
         String taskId = params.get("taskId");
         Assert.hasText(taskId, "taskId is required.");
-        return taskService.result(taskId);
+        Query query = new Query(NumberUtil.toInt(params.get("pageNum"), 1), NumberUtil.toInt(params.get("pageSize"), 10));
+        query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
+        query.addOrderBy(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, SortEnum.DESC);
+        query.addFilter(ConfigConstant.TASK_ID, taskId);
+        query.addExcludeSelectLabel(ConfigConstant.TASK_CONTENT);
+        return storageService.query(query);
+    }
+
+    @Override
+    public Object getValidateResultDetail(String id) {
+        Assert.hasText(id, "id is required.");
+        Query query = new Query(1, 1);
+        query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
+        query.addFilter(ConfigConstant.CONFIG_MODEL_ID, id);
+        Paging paging = storageService.query(query);
+        if (paging == null || CollectionUtils.isEmpty(paging.getData())) {
+            return null;
+        }
+        return paging.getData().iterator().next();
     }
 
     @Override

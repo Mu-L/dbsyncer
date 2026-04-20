@@ -34,7 +34,7 @@
                 <th>结果</th>
                 <th>状态</th>
                 <th>更新时间</th>
-                <th>查看详情</th>
+                <th>操作</th>
             </tr>
             </thead>
             <tbody id="validate-sync-table"></tbody>
@@ -166,19 +166,12 @@
         return stateBtn.join('');
     }
 
-    // 渲染结果列：有执行记录时均可查看结果，运行中额外显示状态标识
+    // 渲染结果列：有执行记录（updateTime）时可查看结果；运行状态由「状态」列展示，此处不重复
     function renderResultColumn(task) {
-        const status = task.status || 0;
         const hasResult = !!task.updateTime;
         const viewLink = `<a href="javascript:void(0)" class="text-primary" onclick="doLoader('/validate-sync/page/detail?id=${task.id}')">
                         <i class="fa fa-bar-chart"></i> 查看结果
                     </a>`;
-        if (status === 1 && hasResult) {
-            return `<span class="text-warning mr-2"><i class="fa fa-spinner fa-spin"></i> 执行中</span>${viewLink}`;
-        }
-        if (status === 1) {
-            return '<span class="text-gray-400"><i class="fa fa-spinner fa-spin"></i> 执行中</span>';
-        }
         if (hasResult) {
             return viewLink;
         }

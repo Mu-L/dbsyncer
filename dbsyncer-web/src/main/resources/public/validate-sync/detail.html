@@ -39,7 +39,7 @@
                 <th>差异数</th>
                 <th>已订正</th>
                 <th>更新时间</th>
-                <th style="width: 80px;">操作</th>
+                <th style="width: 80px;">查看详情</th>
             </tr>
             </thead>
             <tbody id="detail-result-table"></tbody>
@@ -58,10 +58,10 @@
             <!-- 汇总信息（行数据类型时显示） -->
             <div id="diffSummary" class="mb-4" style="display:none;">
                 <div class="grid grid-cols-4">
-                    <div class="flex items-center"><label class="font-medium text-gray-600" style="width:80px;">源表</label><span id="summarySourceTotal" class="badge badge-info">-</span></div>
-                    <div class="flex items-center"><label class="font-medium text-gray-600" style="width:80px;">目标</label><span id="summaryTargetTotal" class="badge badge-info">-</span></div>
-                    <div class="flex items-center"><label class="font-medium text-gray-600" style="width:80px;">差异</label><span id="summaryDiffTotal" class="badge badge-error">-</span></div>
-                    <div class="flex items-center"><label class="font-medium text-gray-600" style="width:80px;">已订正</label><span id="summaryCorrectedTotal" class="badge badge-success">-</span></div>
+                    <div class="flex items-center"><label class="font-medium text-gray-600 w-10" >源表</label><span id="summarySourceTotal" class="badge badge-info">-</span></div>
+                    <div class="flex items-center"><label class="font-medium text-gray-600 w-10" >目标</label><span id="summaryTargetTotal" class="badge badge-info">-</span></div>
+                    <div class="flex items-center"><label class="font-medium text-gray-600 w-10" >差异</label><span id="summaryDiffTotal" class="badge badge-error">-</span></div>
+                    <div class="flex items-center"><label class="font-medium text-gray-600 w-10" >已订正</label><span id="summaryCorrectedTotal" class="badge badge-success">-</span></div>
                 </div>
             </div>
             <!-- 差异数据表格 -->
@@ -83,7 +83,6 @@
         };
 
         var currentTaskId = '[[${taskId}]]';
-        window._resultRows = {};
 
         // 初始化任务下拉组件
         var taskSelect = $('#detailTaskSelect').dbSelect({
@@ -157,8 +156,15 @@
             }
         }
 
-        // 获取差异总数
+        // 获取差异总数（优先独立列 diffTotal，兼容旧 content）
         function getDiffTotal(row) {
+            if (row.diffTotal !== undefined && row.diffTotal !== null && row.diffTotal !== '') {
+                var n = Number(row.diffTotal);
+                if (n > 0) {
+                    return '<span class="badge badge-error">' + n + '</span>';
+                }
+                return '<span class="badge badge-success">0</span>';
+            }
             var content = parseContent(row.content);
             if (!content) return '-';
             var total = content.diffTotal || 0;
@@ -168,23 +174,35 @@
             return '<span class="badge badge-success">0</span>';
         }
 
-        // 获取已订正数（仅行数据类型有值）
+        // 获取已订正数（独立列 fixedTotal；兼容旧 content.correctedTotal）
         function getCorrectedTotal(row) {
-            var content = parseContent(row.content);
-            if (!content || row.type !== 'rowData') return '<span class="text-gray-400">-</span>';
-            var total = content.correctedTotal || 0;
+            if (row.type !== 'rowData') return '<span class="text-gray-400">-</span>';
+            var total = row.fixedTotal;
+            if (total === undefined || total === null) {
+                var content = parseContent(row.content);
+                total = content ? content.correctedTotal : 0;
+            }
+            total = Number(total) || 0;
             if (total > 0) {
                 return '<span class="badge badge-success">' + total + '</span>';
             }
             return '<span class="text-gray-400">0</span>';
         }
 
-        // 获取源/目标总记录数（仅行数据类型有值）
+        // 获取源/目标总记录数（独立列；兼容旧 content）
         function getSourceTargetCounts(row) {
-            var content = parseContent(row.content);
-            if (!content || row.type !== 'rowData') return '<span class="text-gray-400">-</span>';
-            var sourceTotal = (content.sourceTotal === undefined || content.sourceTotal === null) ? '-' : content.sourceTotal;
-            var targetTotal = (content.targetTotal === undefined || content.targetTotal === null) ? '-' : content.targetTotal;
+            if (row.type !== 'rowData') return '<span class="text-gray-400">-</span>';
+            var sourceTotal = row.sourceTotal;
+            var targetTotal = row.targetTotal;
+            if (sourceTotal === undefined && targetTotal === undefined) {
+                var content = parseContent(row.content);
+                if (content) {
+                    sourceTotal = content.sourceTotal;
+                    targetTotal = content.targetTotal;
+                }
+            }
+            sourceTotal = (sourceTotal === undefined || sourceTotal === null) ? '-' : sourceTotal;
+            targetTotal = (targetTotal === undefined || targetTotal === null) ? '-' : targetTotal;
             return '<span>源：' + sourceTotal + '</span><br><span>目：' + targetTotal + '</span>';
         }
 
@@ -203,50 +221,70 @@
             return 'inconsistent';
         }
 
-        // 显示差异详情弹窗
-        window.showDiffDetail = function (index) {
-            var row = window._resultRows[index];
-            if (!row) return;
-            var content = parseContent(row.content);
-            if (!content) {
-                bootGrowl('无法解析校验结果', 'warning');
-                return;
-            }
-            var type = row.type || '';
-            var data = content.data || [];
+        /**
+         * 按明细 ID 拉取完整记录（含 CONTENT）后展示弹窗。
+         * @param {string} detailId 明细主键
+         */
+        window.showDiffDetail = function (detailId) {
+            if (!detailId) return;
+            doPoster('/validate-sync/searchResultDetail', {id: detailId}, function (res) {
+                if (!res.success) {
+                    bootGrowl(res.message || '加载失败', 'danger');
+                    return;
+                }
+                var row = res.data;
+                var content = parseContent(row.content);
+                if (!content) {
+                    bootGrowl('无法解析校验结果', 'warning');
+                    return;
+                }
+                var type = row.type || '';
+                var data = content.data || [];
+                var tableNameOuter = row.sourceTableName || (content.tableName || '-');
+                var src = row.sourceTotal != null ? row.sourceTotal : (content.sourceTotal != null ? content.sourceTotal : 0);
+                var tgt = row.targetTotal != null ? row.targetTotal : (content.targetTotal != null ? content.targetTotal : 0);
+                var diff = row.diffTotal != null ? row.diffTotal : (content.diffTotal != null ? content.diffTotal : 0);
+                var fixed = row.fixedTotal != null ? row.fixedTotal : (content.correctedTotal != null ? content.correctedTotal : 0);
 
-            // 汇总区（仅行数据类型）
-            if (type === 'rowData' && content.tableName) {
-                $('#diffSummary').show();
-                $('#summarySourceTotal').text(content.sourceTotal || 0);
-                $('#summaryTargetTotal').text(content.targetTotal || 0);
-                $('#summaryDiffTotal').text(content.diffTotal || 0);
-                $('#summaryCorrectedTotal').text(content.correctedTotal || 0);
-            } else {
-                $('#diffSummary').hide();
-            }
+                if (type === 'rowData') {
+                    $('#diffSummary').show();
+                    $('#summarySourceTotal').text(src);
+                    $('#summaryTargetTotal').text(tgt);
+                    $('#summaryDiffTotal').text(diff);
+                    $('#summaryCorrectedTotal').text(fixed);
+                } else {
+                    $('#diffSummary').hide();
+                }
 
-            // 统一表头
-            var headHtml = '<tr><th>源表名称</th><th>对象类型</th><th>主键/标识</th><th>异常</th></tr>';
-            var bodyHtml = '';
-            data.forEach(function (d) {
-                var category = classifyDiffMsg(d.msg);
-                var catConfig = diffCategoryMap[category];
-                var msgBadge = '<span class="badge ' + catConfig.badgeClass + ' mr-2">' + catConfig.text + '</span>';
-                bodyHtml += '<tr>' +
-                    '<td>' + escapeHtml(d.tableName || '-') + '</td>' +
-                    '<td>' + escapeHtml(d.objType || '-') + '</td>' +
-                    '<td>' + escapeHtml(d.key || '-') + '</td>' +
-                    '<td>' + msgBadge  + '</td>' +
-                    '</tr>';
+                var headHtml = '<tr><th>源表名称</th><th>类型</th><th>主键/标识</th><th>异常</th></tr>';
+                var bodyHtml = '';
+                data.forEach(function (d) {
+                    var category = classifyDiffMsg(d.msg);
+                    var catConfig = diffCategoryMap[category];
+                    var msgBadge = '<span class="badge ' + catConfig.badgeClass + ' mr-2">' + catConfig.text + '</span>';
+                    var typeText = d.type || d.objType || '-';
+                    bodyHtml += '<tr>' +
+                        '<td>' + escapeHtml(tableNameOuter) + '</td>' +
+                        '<td>' + escapeHtml(typeText) + '</td>' +
+                        '<td>' + escapeHtml(d.key || '-') + '</td>' +
+                        '<td>' + msgBadge + '</td>' +
+                        '</tr>';
+                });
+                if (data.length === 0) {
+                    bodyHtml = '<tr><td colspan="4" class="text-center text-gray-400">无差异数据</td></tr>';
+                }
+                $('#diffTableHead').html(headHtml);
+                $('#diffTableBody').html(bodyHtml);
+                $('#diffDetailOverlay').show();
             });
-            if (data.length === 0) {
-                bodyHtml = '<tr><td colspan="4" class="text-center text-gray-400">无差异数据</td></tr>';
-            }
-            $('#diffTableHead').html(headHtml);
-            $('#diffTableBody').html(bodyHtml);
-            $('#diffDetailOverlay').show();
         };
+
+        $(document).on('click', '.diff-detail-btn', function () {
+            var id = $(this).data('detail-id');
+            if (id) {
+                window.showDiffDetail(String(id));
+            }
+        });
 
         // 初始化分页
         var resultPagination = new PaginationManager({
@@ -254,10 +292,10 @@
             tableBodySelector: '#detail-result-table',
             params: {taskId: currentTaskId},
             renderRow: function (row, index) {
-                window._resultRows[index] = row;
                 var typeCode = row.type || '';
                 var badgeClass = typeBadgeMap[typeCode] || 'badge-info';
                 var typeText = typeTextMap[typeCode] || typeCode;
+                var detailId = row.id != null ? row.id : '';
                 return '<tr>' +
                     '<td>' + index + '</td>' +
                     '<td><span class="badge ' + badgeClass + '">' + escapeHtml(typeText) + '</span></td>' +
@@ -267,13 +305,11 @@
                     '<td>' + getDiffTotal(row) + '</td>' +
                     '<td>' + getCorrectedTotal(row) + '</td>' +
                     '<td>' + formatDate(row.createTime || '') + '</td>' +
-                    '<td><button class="table-action-btn view" title="查看详情" onclick="showDiffDetail(' + index + ')"><i class="fa fa-eye"></i></button></td>' +
+                    '<td><button type="button" class="table-action-btn view diff-detail-btn" title="查看详情" data-detail-id="' + String(detailId).replace(/"/g, '') + '"><i class="fa fa-eye"></i></button></td>' +
                     '</tr>';
             },
             emptyHtml: '<td colspan="9" class="text-center"><i class="fa fa-file-text-o empty-icon"></i><p class="empty-text">暂无校验结果</p><p class="empty-description">请先执行校验任务</p></td>'
         });
-
-        resultPagination.doSearch({taskId: currentTaskId});
     });
 </script>
 </html>
