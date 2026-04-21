@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.sql.Time;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -70,6 +71,14 @@ public final class OracleStringType extends StringType {
         } catch (SQLException | IOException e) {
             throw new OracleException(e);
         }
+    }
+
+    @Override
+    protected Object convert(Object val, Field field) {
+        if (val instanceof Time) {
+            return val.toString();
+        }
+        return super.convert(val,field);
     }
 
 }
