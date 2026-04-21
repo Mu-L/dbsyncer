@@ -259,9 +259,8 @@
                 var headHtml = '<tr><th>源表名称</th><th>类型</th><th>主键/标识</th><th>异常</th></tr>';
                 var bodyHtml = '';
                 data.forEach(function (d) {
-                    var category = classifyDiffMsg(d.msg);
-                    var catConfig = diffCategoryMap[category];
-                    var msgBadge = '<span class="badge ' + catConfig.badgeClass + ' mr-2">' + catConfig.text + '</span>';
+
+                    var msgBadge = '<span class="badge badge-error mr-2">' + d.msg + '</span>';
                     var typeText = d.type || d.objType || '-';
                     bodyHtml += '<tr>' +
                         '<td>' + escapeHtml(tableNameOuter) + '</td>' +
