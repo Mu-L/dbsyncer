@@ -45,6 +45,9 @@ public final class SqlServerByteType extends ByteType {
             Boolean b = (Boolean) val;
             return (byte) (b ? 1 : 0);
         }
+        if (val instanceof Number) {
+            return ((Number) val).byteValue();
+        }
         return throwUnsupportedException(val, field);
     }
 
