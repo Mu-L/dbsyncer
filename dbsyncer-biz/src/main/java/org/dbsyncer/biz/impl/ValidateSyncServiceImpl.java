@@ -498,6 +498,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             task.setCron(cron);
         }
         task.setEnableSync(StringUtil.isNotBlank(params.get("enableSync")));
+        task.setEnableSchema(StringUtil.isNotBlank(params.get("enableSchema")));
         task.setEnablerRowData(StringUtil.isNotBlank(params.get("enablerRowData")));
         task.setEnableIndex(StringUtil.isNotBlank(params.get("enableIndex")));
         task.setEnableTrigger(StringUtil.isNotBlank(params.get("enableTrigger")));

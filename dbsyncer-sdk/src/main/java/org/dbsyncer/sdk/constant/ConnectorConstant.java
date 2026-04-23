@@ -45,12 +45,8 @@ public class ConnectorConstant {
     /**
      * 目标端按主键批量IN查询
      */
-    public static final String OPERTION_QUERY_IN = "QUERY_IN";
+    public static final String OPERTION_QUERY_TARGET = "QUERY_TARGET";
 
-    /**
-     * QUERY_IN 条件占位符
-     */
-    public static final String QUERY_IN_CONDITION_PLACEHOLDER = "__DBSYNCER_IN_CONDITION__";
 
     /**
      * 游标分页实际使用的主键名列表（逗号分隔），与 QUERY_CURSOR 的 SQL 占位符一致。

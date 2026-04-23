@@ -176,7 +176,6 @@
 
         // 获取已订正数（独立列 fixedTotal；兼容旧 content.correctedTotal）
         function getCorrectedTotal(row) {
-            if (row.type !== 'rowData') return '<span class="text-gray-400">-</span>';
             var total = row.fixedTotal;
             if (total === undefined || total === null) {
                 var content = parseContent(row.content);
@@ -206,21 +205,6 @@
             return '<span>源：' + sourceTotal + '</span><br><span>目：' + targetTotal + '</span>';
         }
 
-        // 差异类型分类标签
-        var diffCategoryMap = {
-            'notInTarget': { text: '目标表不存在', badgeClass: 'badge-error' },
-            'notInSource': { text: '源表不存在', badgeClass: 'badge-warning' },
-            'inconsistent': { text: '数据不一致', badgeClass: 'badge-info' }
-        };
-
-        // 根据差异描述判断差异类别
-        function classifyDiffMsg(msg) {
-            if (!msg) return 'inconsistent';
-            if (msg.indexOf('目标表不存在') >= 0) return 'notInTarget';
-            if (msg.indexOf('源表不存在') >= 0) return 'notInSource';
-            return 'inconsistent';
-        }
-
         /**
          * 按明细 ID 拉取完整记录（含 CONTENT）后展示弹窗。
          * @param {string} detailId 明细主键
@@ -244,7 +228,7 @@
                 var src = row.sourceTotal != null ? row.sourceTotal : (content.sourceTotal != null ? content.sourceTotal : 0);
                 var tgt = row.targetTotal != null ? row.targetTotal : (content.targetTotal != null ? content.targetTotal : 0);
                 var diff = row.diffTotal != null ? row.diffTotal : (content.diffTotal != null ? content.diffTotal : 0);
-                var fixed = row.fixedTotal != null ? row.fixedTotal : (content.correctedTotal != null ? content.correctedTotal : 0);
+                var fixed = row.fixedTotal != null ? row.fixedTotal : 0;
 
                 if (type === 'rowData') {
                     $('#diffSummary').show();

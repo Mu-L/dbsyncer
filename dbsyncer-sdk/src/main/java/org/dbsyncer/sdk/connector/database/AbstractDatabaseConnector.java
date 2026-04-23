@@ -11,9 +11,7 @@ import org.dbsyncer.sdk.config.CommandConfig;
 import org.dbsyncer.sdk.config.DDLConfig;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.config.SqlBuilderConfig;
-import org.dbsyncer.sdk.connector.AbstractConnector;
-import org.dbsyncer.sdk.connector.ConnectorInstance;
-import org.dbsyncer.sdk.connector.ConnectorServiceContext;
+import org.dbsyncer.sdk.connector.*;
 import org.dbsyncer.sdk.connector.database.ds.SimpleConnection;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
@@ -23,6 +21,9 @@ import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.enums.QuartzFilterEnum;
 import org.dbsyncer.sdk.enums.SqlBuilderEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
+import org.dbsyncer.sdk.filter.AbstractFilter;
+import org.dbsyncer.sdk.filter.BooleanFilter;
+import org.dbsyncer.sdk.filter.impl.ListFilter;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.MetaInfo;
@@ -47,14 +48,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -251,11 +245,15 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         if (CollectionUtils.isEmpty(command)) {
             return 0L;
         }
+        // 2. 根据是否目标连接器选择SQL
+        DefaultMetaContext context = (metaContext instanceof DefaultMetaContext) ? (DefaultMetaContext) metaContext : null;
+        boolean isTarget = Objects.nonNull(context) && context.isTargetConnector();
 
-        // 1、获取select SQL
-        String queryCountSql = command.get(ConnectorConstant.OPERTION_QUERY_COUNT);
+        String queryCountSql = isTarget? command.get(ConnectorConstant.TARGET_QUERY_COUNT) : command.get(ConnectorConstant.OPERTION_QUERY_COUNT);
+
+        // 3. SQL为空直接返回
         if (StringUtil.isBlank(queryCountSql)) {
-            return 0;
+            return 0L;
         }
 
         // 2、返回结果集
@@ -274,14 +272,25 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         // 1、获取查询SQL
         boolean supportedCursor = context.isSupportedCursor() && context.getCursors() != null && context.getCursors().length > 0;
         String queryKey = supportedCursor ? ConnectorConstant.OPERTION_QUERY_CURSOR : ConnectorConstant.OPERTION_QUERY;
-        final String querySql = context.getCommand().get(queryKey);
-        Assert.hasText(querySql, "查询语句不能为空.");
+        String querySql;
+        if (context instanceof FullPluginContext && ((FullPluginContext) context).isTargetConnector()){
+            queryKey = ConnectorConstant.OPERTION_QUERY_TARGET;
+            querySql = context.getCommand().get(queryKey);
+            Assert.hasText(querySql, "查询语句不能为空.");
+            BooleanFilter filter = ((FullPluginContext) context).getFilter();
+            String condition = buildQueryCondition(filter, context.getArgs());
+            querySql = buildTargetReaderSql(querySql, condition);
+        }else {
+            querySql = context.getCommand().get(queryKey);
+            Assert.hasText(querySql, "查询语句不能为空.");
+            // 2、设置参数
+            Collections.addAll(context.getArgs(), supportedCursor ? getPageCursorArgs(context) : getPageArgs(context));
+        }
 
-        // 2、设置参数
-        Collections.addAll(context.getArgs(), supportedCursor ? getPageCursorArgs(context) : getPageArgs(context));
+        final String finalQuerySql = querySql;
 
         // 3、执行SQL
-        List<Map<String, Object>> list = connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(querySql, context.getArgs().toArray()));
+        List<Map<String, Object>> list = connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(finalQuerySql, context.getArgs().toArray()));
 
         // 4、返回结果集
         return new Result(list);
@@ -442,8 +451,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         }
         PageSql pageSql = new PageSql(querySql, StringUtil.EMPTY, primaryKeys, table.getColumn());
         map.put(SqlBuilderEnum.QUERY.getName(), getPageSql(pageSql));
-        map.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInTemplate(querySql));
-
         // 获取查询总数SQL
         map.put(SqlBuilderEnum.QUERY_COUNT.getName(), "SELECT COUNT(*) FROM (" + querySql + ") DBS_T");
         return map;
@@ -480,10 +487,10 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         }
         buildSql(map, SqlBuilderEnum.DELETE, config);
 
-        map.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInTemplate(SqlBuilderEnum.QUERY.getSqlBuilder().buildQuerySql(config)));
+        map.put(ConnectorConstant.OPERTION_QUERY_TARGET, SqlBuilderEnum.QUERY.getSqlBuilder().buildQuerySql(config));
 
+        //查询目标总数SQL
         map.put(SqlBuilderEnum.TARGET_QUERY_COUNT.getName(), getQueryCountSql(config));
-
         return map;
     }
 
@@ -520,16 +527,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         return s.toString();
     }
 
-    /**
-     * 构建 QUERY_IN 模板：
-     * <pre>
-     *     SELECT ... FROM ... [WHERE ...] AND/WHERE __DBSYNCER_IN_CONDITION__
-     * </pre>
-     */
-    private String buildQueryInTemplate(String baseQuerySql) {
-        String whereKeyword = baseQuerySql.toUpperCase().contains(" WHERE ") ? " AND " : " WHERE ";
-        return baseQuerySql + whereKeyword + ConnectorConstant.QUERY_IN_CONDITION_PLACEHOLDER;
-    }
 
     /**
      * 构建复合键的游标分页条件（支持任意数量的主键）
@@ -700,6 +697,129 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         }
 
         return cursorArgs;
+    }
+
+    /**
+     * 根据当前运行的参数，动态拼接 WHERE 查询条件
+     *
+     */
+    private String buildQueryCondition(BooleanFilter baseQuery, List<Object> args) {
+        if (baseQuery == null) {
+            return null;
+        }
+        List<BooleanFilter> clauses = baseQuery.getClauses();
+        List<AbstractFilter> rootFilters = baseQuery.getFilters();
+        if (CollectionUtils.isEmpty(clauses) && CollectionUtils.isEmpty(rootFilters)) {
+            return null;
+        }
+        StringBuilder sql = new StringBuilder();
+        if (!CollectionUtils.isEmpty(rootFilters)) {
+            applyRuntimeFilterSql(rootFilters, args, sql);
+            return sql.length() > 0 ? sql.toString() : null;
+        }
+        appendRuntimeConditionSql(clauses, args, sql);
+        return sql.length() > 0 ? sql.toString() : null;
+    }
+
+    /**
+     * 解析/处理【目标端读取器】的查询 SQL，动态拼接查询条件
+     */
+    private String buildTargetReaderSql(String querySql, String condition) {
+        // 无查询条件，直接返回原SQL
+        if (StringUtil.isBlank(condition)) {
+            return trimTrailingAndOrWhere(querySql);
+        }
+        // 自动判断追加 WHERE 或 AND
+        String keyword = querySql.toUpperCase(Locale.ROOT).contains(" WHERE ") ? " AND " : " WHERE ";
+        return querySql + keyword + condition;
+    }
+
+    /**
+     * 清理SQL尾部多余的 WHERE / AND 关键字
+     */
+    private String trimTrailingAndOrWhere(String sql) {
+        String result = sql.replaceAll("(?i)\\s+AND\\s*$", "");
+        result = result.replaceAll("(?i)\\s+WHERE\\s*$", "");
+        return result;
+    }
+
+    /**
+     *  根据条件 动态组装 sql 和参数
+     */
+    private void applyRuntimeFilterSql(List<AbstractFilter> filters, List<Object> args, StringBuilder sql) {
+        int size = filters.size();
+        for (int i = 0; i < size; i++) {
+            AbstractFilter abstractFilter = filters.get(i);
+            if (i > 0) {
+                sql.append(" ").append(abstractFilter.getOperation().toUpperCase()).append(" ");
+            }
+            if (abstractFilter instanceof ListFilter) {
+                ListFilter inList = (ListFilter) abstractFilter;
+                List<Object> binds = inList.getBindValues();
+                if (CollectionUtils.isEmpty(binds)) {
+                    throw new SdkException("InListFilter bindValues can not be empty.");
+                }
+                sql.append(buildWithQuotation(inList.getName())).append(" IN (");
+                for (int j = 0; j < binds.size(); j++) {
+                    if (j > 0) {
+                        sql.append(StringUtil.COMMA);
+                    }
+                    sql.append("?");
+                }
+                sql.append(")");
+                args.addAll(binds);
+                continue;
+            }
+            FilterEnum filterEnum = FilterEnum.getFilterEnum(abstractFilter.getFilter());
+            sql.append(abstractFilter.getName());
+            if (filterEnum == FilterEnum.IS_NULL || filterEnum == FilterEnum.IS_NOT_NULL) {
+                sql.append(" ").append(filterEnum.getName().toUpperCase());
+                continue;
+            }
+            sql.append(String.format(" %s ?", filterEnum.getName()));
+            switch (filterEnum) {
+                case EQUAL:
+                case NOT_EQUAL:
+                case LT:
+                case LT_AND_EQUAL:
+                case GT:
+                case GT_AND_EQUAL:
+                    args.add(abstractFilter.getValue());
+                    break;
+                case LIKE:
+                    args.add(new StringBuilder("%").append(abstractFilter.getValue()).append("%"));
+                    break;
+                case IN:
+                    args.add(new StringBuilder("(").append(abstractFilter.getValue()).append(")"));
+                    break;
+                default:
+                    throw new SdkException("Unsupported filter type: " + filterEnum.getName());
+            }
+        }
+    }
+
+    /**
+     * 将嵌套的 {@link BooleanFilter} 子句拼为参数化条件（子句之间用子句上的 {@link OperationEnum} 连接）。
+     *
+     * @param clauses 子句列表
+     * @param args    参数列表
+     * @param sql     输出 SQL 片段
+     */
+    private void appendRuntimeConditionSql(List<BooleanFilter> clauses, List<Object> args, StringBuilder sql) {
+        int size = clauses.size();
+        for (int i = 0; i < size; i++) {
+            BooleanFilter booleanFilter = clauses.get(i);
+            List<AbstractFilter> filters = booleanFilter.getFilters();
+            if (CollectionUtils.isEmpty(filters)) {
+                continue;
+            }
+            if (i > 0) {
+                sql.append(" ").append(booleanFilter.getOperationEnum().name().toUpperCase()).append(" ");
+            }
+            sql.append("(");
+            applyRuntimeFilterSql(filters, args, sql);
+            sql.append(")");
+        }
     }
 
     /**

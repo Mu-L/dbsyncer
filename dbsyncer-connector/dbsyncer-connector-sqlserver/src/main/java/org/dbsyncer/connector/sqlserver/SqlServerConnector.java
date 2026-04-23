@@ -156,7 +156,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
                     + String.format(SET_TABLE_IDENTITY_OFF, commandConfig.getSchema(), tableName);
             targetCommand.put(ConnectorConstant.OPERTION_INSERT, insert);
         }
-        targetCommand.put(ConnectorConstant.OPERTION_QUERY_IN, buildQueryInSql(commandConfig));
+        targetCommand.put(ConnectorConstant.OPERTION_QUERY_TARGET, buildQueryInSql(commandConfig));
         targetCommand.put(ConnectorConstant.TARGET_QUERY_COUNT, buildTargetCountSql(commandConfig));
 
         return targetCommand;
@@ -168,7 +168,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     private String buildQueryInSql(CommandConfig commandConfig) {
         String schema = StringUtil.isNotBlank(commandConfig.getSchema()) ? buildWithQuotation(commandConfig.getSchema()) + "." : StringUtil.EMPTY;
         String tableName = buildWithQuotation(commandConfig.getTable().getName());
-        return "SELECT * FROM " + schema + tableName + " WHERE " + ConnectorConstant.QUERY_IN_CONDITION_PLACEHOLDER;
+        return "SELECT * FROM " + schema + tableName;
     }
 
     private String buildTargetCountSql(CommandConfig commandConfig) {

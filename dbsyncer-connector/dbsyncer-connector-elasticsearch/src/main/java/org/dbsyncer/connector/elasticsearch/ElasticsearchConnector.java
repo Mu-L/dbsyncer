@@ -17,15 +17,15 @@ import org.dbsyncer.connector.elasticsearch.schema.ElasticsearchSchemaResolver;
 import org.dbsyncer.connector.elasticsearch.util.ESUtil;
 import org.dbsyncer.connector.elasticsearch.validator.ESConfigValidator;
 import org.dbsyncer.sdk.config.CommandConfig;
-import org.dbsyncer.sdk.connector.AbstractConnector;
-import org.dbsyncer.sdk.connector.ConfigValidator;
-import org.dbsyncer.sdk.connector.ConnectorInstance;
-import org.dbsyncer.sdk.connector.ConnectorServiceContext;
+import org.dbsyncer.sdk.connector.*;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
 import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
+import org.dbsyncer.sdk.filter.AbstractFilter;
+import org.dbsyncer.sdk.filter.BooleanFilter;
+import org.dbsyncer.sdk.filter.impl.ListFilter;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
@@ -60,6 +60,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchHit;
@@ -274,7 +275,12 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
             }
             builder.from(0);
             builder.size(0);
-            SearchRequest request = new SearchRequest(new String[]{command.get(_SOURCE_INDEX)}, builder);
+            String index=  command.get(_SOURCE_INDEX);
+            if (metaContext instanceof DefaultMetaContext && ((DefaultMetaContext) metaContext).isTargetConnector()) {
+                 index =  command.get(ConnectorConstant.TARGET_QUERY_COUNT);
+            }
+            SearchRequest request = new SearchRequest(new String[]{index}, builder);
+
             SearchResponse response = connectorInstance.getConnection().searchWithVersion(request, RequestOptions.DEFAULT);
             return response.getHits().getTotalHits().value;
         } catch (IOException e) {
@@ -286,21 +292,35 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
     @Override
     public Result reader(ESConnectorInstance connectorInstance, ReaderContext context) {
         SearchSourceBuilder builder = new SearchSourceBuilder();
-        genSearchSourceBuilder(builder, context.getCommand());
-        builder.timeout(TimeValue.timeValueSeconds(connectorInstance.getConfig().getTimeoutSeconds()));
-        List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(context.getSourceTable());
-        primaryKeys.forEach(pk->builder.sort(pk, SortOrder.ASC));
-        // 深度分页
-        if (!CollectionUtils.isEmpty(context.getCursors())) {
-            builder.from(0);
-            builder.searchAfter(context.getCursors());
-        } else {
-            builder.from((context.getPageIndex() - 1) * context.getPageSize());
+        String index = _SOURCE_INDEX;
+        if (context instanceof FullPluginContext && ((FullPluginContext) context).isTargetConnector()) {
+            index = ConnectorConstant.OPERTION_QUERY_TARGET;
+            BooleanFilter filter = ((FullPluginContext) context).getFilter();
+            QueryBuilder dynamicQuery = buildFilterToQuery(filter);
+            if (dynamicQuery != null) {
+                builder.query(dynamicQuery);
+            }
+            int size = 10000;
+            if (filter.getFilters()!=null && filter.getFilters().get(0) instanceof ListFilter) {
+                size =  ((ListFilter) filter.getFilters().get(0)).getBindValues().size();
+            }
+            builder.size(size);
+        }else {
+            builder.size(Math.min(context.getPageSize(), 10000));
+            genSearchSourceBuilder(builder, context.getCommand());
+            builder.timeout(TimeValue.timeValueSeconds(connectorInstance.getConfig().getTimeoutSeconds()));
+            List<String> primaryKeys = PrimaryKeyUtil.findTablePrimaryKeys(context.getSourceTable());
+            primaryKeys.forEach(pk->builder.sort(pk, SortOrder.ASC));
+            // 深度分页
+            if (!CollectionUtils.isEmpty(context.getCursors())) {
+                builder.from(0);
+                builder.searchAfter(context.getCursors());
+            } else {
+                builder.from((context.getPageIndex() - 1) * context.getPageSize());
+            }
         }
-        builder.size(Math.min(context.getPageSize(), 10000));
-
         try {
-            SearchRequest rq = new SearchRequest(new String[]{context.getCommand().get(_SOURCE_INDEX)}, builder);
+            SearchRequest rq = new SearchRequest(new String[]{context.getCommand().get(index)}, builder);
             SearchResponse searchResponse = connectorInstance.getConnection().searchWithVersion(rq, RequestOptions.DEFAULT);
             SearchHits hits = searchResponse.getHits();
             SearchHit[] searchHits = hits.getHits();
@@ -325,7 +345,6 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
             logger.error("writer data can not be empty.");
             throw new ElasticsearchException("writer data can not be empty.");
         }
-
         Result result = new Result();
         final List<Field> pkFields = PrimaryKeyUtil.findExistPrimaryKeyFields(context.getTargetFields());
         try {
@@ -391,6 +410,8 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
         if (type != null) {
             command.put(_TYPE, String.valueOf(type));
         }
+        command.put(ConnectorConstant.TARGET_QUERY_COUNT,table.getName());
+        command.put(ConnectorConstant.OPERTION_QUERY_TARGET,table.getName());
         return command;
     }
 
@@ -435,6 +456,135 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
             }
             fields.add(new Field(fieldName, columnType, ESFieldTypeEnum.getType(columnType)));
         });
+    }
+
+    /**
+     *  根据BooleanFilter 构建查询语句
+     */
+    private QueryBuilder buildFilterToQuery(BooleanFilter root) {
+        if (root == null) {
+            return null;
+        }
+        List<BooleanFilter> clauses = root.getClauses();
+        List<AbstractFilter> rootFilters = root.getFilters();
+        if (CollectionUtils.isEmpty(clauses) && CollectionUtils.isEmpty(rootFilters)) {
+            return null;
+        }
+        if (!CollectionUtils.isEmpty(rootFilters)) {
+            return combineFlatFilterList(rootFilters);
+        }
+        return combineFilters(clauses);
+    }
+
+    /**
+     * 子句列表：子句之间用子句上的
+     */
+    private QueryBuilder combineFilters(List<BooleanFilter> clauses) {
+        QueryBuilder acc = null;
+        for (int i = 0; i < clauses.size(); i++) {
+            BooleanFilter clauseBf = clauses.get(i);
+            QueryBuilder clauseQ = combineFlatFilterList(clauseBf.getFilters());
+            if (clauseQ == null) {
+                continue;
+            }
+            if (acc == null) {
+                acc = clauseQ;
+                continue;
+            }
+            OperationEnum op = clauseBf.getOperationEnum() != null ? clauseBf.getOperationEnum() : OperationEnum.AND;
+            BoolQueryBuilder b = QueryBuilders.boolQuery();
+            if (op == OperationEnum.OR) {
+                b.should(acc).should(clauseQ);
+                b.minimumShouldMatch(1);
+            } else {
+                b.must(acc).must(clauseQ);
+            }
+            acc = b;
+        }
+        return acc;
+    }
+
+    /**
+     *  合并 平铺查询条件
+     */
+    private QueryBuilder combineFlatFilterList(List<AbstractFilter> filters) {
+        if (CollectionUtils.isEmpty(filters)) {
+            return null;
+        }
+        QueryBuilder acc = convertFilterToQuery(filters.get(0));
+        if (acc == null) {
+            return null;
+        }
+        for (int i = 1; i < filters.size(); i++) {
+            AbstractFilter p = filters.get(i);
+            QueryBuilder q = convertFilterToQuery(p);
+            if (q == null) {
+                continue;
+            }
+            BoolQueryBuilder b = QueryBuilders.boolQuery();
+            if (OperationEnum.isOr(p.getOperation())) {
+                b.should(acc).should(q);
+                b.minimumShouldMatch(1);
+            } else {
+                b.must(acc).must(q);
+            }
+            acc = b;
+        }
+        return acc;
+    }
+
+
+    private QueryBuilder convertFilterToQuery(AbstractFilter p) {
+        if (p instanceof ListFilter) {
+            ListFilter inList = (ListFilter) p;
+            List<Object> raw = inList.getBindValues();
+            if (CollectionUtils.isEmpty(raw)) {
+                return null;
+            }
+            List<?> terms = raw.stream().filter(v -> v != null).collect(Collectors.toList());
+            if (terms.isEmpty()) {
+                return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery());
+            }
+            String field = p.getName();
+            return QueryBuilders.termsQuery(field, terms);
+        }
+        FilterEnum fe;
+        try {
+            fe = FilterEnum.getFilterEnum(p.getFilter());
+        } catch (Exception e) {
+            logger.warn("unsupported filter type: {}", p.getFilter());
+            return null;
+        }
+        String field = p.getName();
+        String val = p.getValue();
+        switch (fe) {
+            case EQUAL:
+                return QueryBuilders.matchQuery(field, val);
+            case NOT_EQUAL:
+                return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchQuery(field, val));
+            case GT:
+                return QueryBuilders.rangeQuery(field).gt(val);
+            case LT:
+                return QueryBuilders.rangeQuery(field).lt(val);
+            case GT_AND_EQUAL:
+                return QueryBuilders.rangeQuery(field).gte(val);
+            case LT_AND_EQUAL:
+                return QueryBuilders.rangeQuery(field).lte(val);
+            case LIKE:
+                return QueryBuilders.wildcardQuery(field, val);
+            case IN:
+                if (StringUtil.isBlank(val)) {
+                    return null;
+                }
+                return QueryBuilders.termsQuery(field, StringUtil.split(val, StringUtil.COMMA));
+            case IS_NULL:
+                return QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(field));
+            case IS_NOT_NULL:
+                return QueryBuilders.existsQuery(field);
+            default:
+                logger.warn("unsupported FilterEnum for ES: {}", fe);
+                return null;
+        }
     }
 
     private void genSearchSourceBuilder(SearchSourceBuilder builder, Map<String, String> command) {
@@ -499,7 +649,7 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
             request.add(req);
             return;
         }
-        if (isInsert(event)) {
+        if (isInsert(event) || StringUtil.equals(ConnectorConstant.OPERTION_UPSERT, event)) {
             IndexRequest req = new IndexRequest(index, type, id);
             req.source(data, XContentType.JSON);
             request.add(req);
