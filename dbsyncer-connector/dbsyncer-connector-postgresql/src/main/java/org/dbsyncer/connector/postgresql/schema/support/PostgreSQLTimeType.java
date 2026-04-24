@@ -1,11 +1,12 @@
 /**
  * DBSyncer Copyright 2020-2026 All Rights Reserved.
  */
-package org.dbsyncer.connector.sqlserver.schema.support;
+package org.dbsyncer.connector.postgresql.schema.support;
 
 import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.schema.support.ByteType;
+import org.dbsyncer.sdk.schema.support.TimeType;
 
+import java.sql.Time;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,13 +16,11 @@ import java.util.stream.Collectors;
  * @Version 1.0.0
  * @Date 2026-01-11 22:21
  */
-public final class SqlServerByteType extends ByteType {
+public final class PostgreSQLTimeType extends TimeType {
 
     private enum TypeEnum {
 
-        BIT("bit"),
-
-        TINYINT("tinyint");
+        TIME("time");
 
         private final String value;
 
@@ -40,15 +39,15 @@ public final class SqlServerByteType extends ByteType {
     }
 
     @Override
-    protected Byte merge(Object val, Field field) {
-        if (val instanceof Boolean) {
-            Boolean b = (Boolean) val;
-            return (byte) (b ? 1 : 0);
-        }
-        if (val instanceof Number) {
-            return ((Number) val).byteValue();
-        }
+    protected Time merge(Object val, Field field) {
         return throwUnsupportedException(val, field);
     }
 
+    @Override
+    protected Object convert(Object val, Field field) {
+        if (val instanceof Time) {
+            return val;
+        }
+        return throwUnsupportedException(val, field);
+    }
 }
