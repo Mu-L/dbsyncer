@@ -15,7 +15,7 @@ public final class FullPluginContext extends AbstractPluginContext  implements C
 
     private BooleanFilter booleanFilter = new BooleanFilter();
 
-    private boolean targetConnector =true;
+    private boolean targetConnector =false;
 
     @Override
     public ModelEnum getModelEnum() {

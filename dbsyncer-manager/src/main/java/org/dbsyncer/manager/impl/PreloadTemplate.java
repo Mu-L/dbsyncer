@@ -46,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
@@ -63,6 +64,7 @@ import java.util.stream.Stream;
  * @date 2019/9/16 23:59
  */
 @Component
+@Order(1)
 public final class PreloadTemplate implements ApplicationListener<ContextRefreshedEvent> {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -236,7 +238,6 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     }
 
     public void reConnect(ValidateSyncTask task) {
-
         //源作为查询，目标也需要作为查询 生成sql语句
         reConnect(task.getId(), task.getSourceConnectorId(), task.getSourceDatabase(), task.getSourceSchema(),
                 task.getTargetConnectorId(), task.getTargetDatabase(), task.getTargetSchema());
