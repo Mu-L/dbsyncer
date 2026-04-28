@@ -23,7 +23,7 @@ import org.dbsyncer.sdk.enums.SqlBuilderEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.filter.AbstractFilter;
 import org.dbsyncer.sdk.filter.BooleanFilter;
-import org.dbsyncer.sdk.filter.impl.ListFilter;
+import org.dbsyncer.sdk.filter.impl.InFilter;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
 import org.dbsyncer.sdk.model.MetaInfo;
@@ -754,8 +754,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
             if (i > 0) {
                 sql.append(" ").append(abstractFilter.getOperation().toUpperCase()).append(" ");
             }
-            if (abstractFilter instanceof ListFilter) {
-                ListFilter inList = (ListFilter) abstractFilter;
+            if (abstractFilter instanceof InFilter) {
+                InFilter inList = (InFilter) abstractFilter;
                 List<Object> binds = inList.getBindValues();
                 if (CollectionUtils.isEmpty(binds)) {
                     throw new SdkException("InListFilter bindValues can not be empty.");

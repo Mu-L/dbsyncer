@@ -9,11 +9,11 @@ import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.SystemConfig;
-import org.dbsyncer.plugin.model.DingTalkNoticeChannel;
-import org.dbsyncer.plugin.model.HttpNoticeChannel;
-import org.dbsyncer.plugin.model.MailNoticeChannel;
-import org.dbsyncer.plugin.model.WeChatNoticeChannel;
-import org.dbsyncer.plugin.model.NoticeConfig;
+import org.dbsyncer.sdk.model.DingTalkNoticeChannel;
+import org.dbsyncer.sdk.model.HttpNoticeChannel;
+import org.dbsyncer.sdk.model.MailNoticeChannel;
+import org.dbsyncer.sdk.model.WeChatNoticeChannel;
+import org.dbsyncer.sdk.model.NoticeConfig;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 

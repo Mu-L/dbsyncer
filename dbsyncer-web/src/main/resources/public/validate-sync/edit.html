@@ -179,6 +179,21 @@
         showTriggerConfig(trigger.getValue());
     }
 
+    /**
+     * 「行数据」与「表结构」至少勾选一个方可保存。
+     * @param {JQuery} $form 表单
+     * @returns {boolean}
+     */
+    function validateValidateSyncScope($form) {
+        var rowData = $form.find('input[name="enablerRowData"]').is(':checked');
+        var schema = $form.find('input[name="enableSchema"]').is(':checked');
+        if (!rowData && !schema) {
+            bootGrowl('请至少勾选「行数据」或「表结构」中的一项。', 'danger');
+            return false;
+        }
+        return true;
+    }
+
     $(function () {
         window.backIndexPage = function () {
             doLoader("/validate-sync/list");
@@ -194,6 +209,9 @@
         // 保存
         $("#task-submit-btn").click(function () {
             let $form = $("#validate-sync-modify-form");
+            if (!validateValidateSyncScope($form)) {
+                return;
+            }
             if (validateForm($form)) {
                 const $btn = $(this);
                 const originalText = $btn.html();

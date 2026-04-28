@@ -3,6 +3,8 @@
  */
 package org.dbsyncer.manager.impl;
 
+import org.dbsyncer.common.enums.CommonTaskStatusEnum;
+import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.model.VersionInfo;
 import org.dbsyncer.common.util.CollectionUtils;
@@ -13,7 +15,8 @@ import org.dbsyncer.connector.base.ConnectorFactory;
 import org.dbsyncer.manager.ManagerFactory;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
-import org.dbsyncer.parser.MessageService;
+import org.dbsyncer.sdk.model.CommonTask;
+import org.dbsyncer.sdk.notice.MessageService;
 import org.dbsyncer.parser.ProfileComponent;
 import org.dbsyncer.parser.command.impl.PreloadCommand;
 import org.dbsyncer.parser.enums.CommandEnum;
@@ -29,12 +32,12 @@ import org.dbsyncer.parser.model.OperationConfig;
 import org.dbsyncer.parser.model.SystemConfig;
 import org.dbsyncer.parser.util.ConnectorInstanceUtil;
 import org.dbsyncer.plugin.PluginFactory;
-import org.dbsyncer.plugin.enums.NoticeChannelEnum;
+import org.dbsyncer.sdk.enums.NoticeChannelEnum;
 import org.dbsyncer.plugin.impl.DingTalkNoticeService;
 import org.dbsyncer.plugin.impl.HttpNoticeService;
 import org.dbsyncer.plugin.impl.MailNoticeService;
 import org.dbsyncer.plugin.impl.WeChatNoticeService;
-import org.dbsyncer.plugin.model.NoticeConfig;
+import org.dbsyncer.sdk.model.NoticeConfig;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.dbsyncer.sdk.enums.StorageEnum;
@@ -327,12 +330,20 @@ public final class PreloadTemplate implements ApplicationListener<ContextRefresh
     }
 
     private void loadValidateSyncTasks() {
-        List<ValidateSyncTask> taskAll = taskService.getTaskAll();
+        List<CommonTask> taskAll = taskService.getTaskAll(CommonTaskTypeEnum.VALIDATE_SYNC);
         if (CollectionUtils.isEmpty(taskAll)) {
             return;
         }
         taskAll.forEach(task -> {
             reConnect((ValidateSyncTask) task);
         });
+
+        //启动任务
+        taskAll.stream()
+                .filter(task -> CommonTaskStatusEnum.isRunning(task.getStatus()))
+                .forEach(task -> {
+                    task.setStatus(CommonTaskStatusEnum.READY.getCode());
+                    taskService.start(task.getId());
+                });
     }
 }

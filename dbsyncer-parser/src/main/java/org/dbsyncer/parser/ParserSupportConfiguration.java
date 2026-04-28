@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.parser;
 
+import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.flush.impl.TableGroupBufferActuator;
@@ -13,6 +14,7 @@ import org.dbsyncer.sdk.spi.TableGroupBufferActuatorService;
 import org.dbsyncer.sdk.spi.TaskService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
@@ -27,6 +29,7 @@ import java.util.Map;
  * @date 2024-01-25 23:43
  */
 @Configuration
+@ComponentScan(basePackages = "com.scxhtb.dbsyncer.platform")
 public class ParserSupportConfiguration {
 
     @Resource
@@ -85,9 +88,10 @@ public class ParserSupportConfiguration {
             }
 
             @Override
-            public Paging search(Map<String, String> param) {
+            public Paging search(Map<String, String> param, CommonTaskTypeEnum commonTaskTypeEnum) {
                 return null;
             }
+
 
             @Override
             public Paging result(String id) {
@@ -95,7 +99,7 @@ public class ParserSupportConfiguration {
             }
 
             @Override
-            public List<ValidateSyncTask> getTaskAll() {
+            public List<CommonTask> getTaskAll(CommonTaskTypeEnum commonTaskTypeEnum) {
                 return Collections.emptyList();
             }
 

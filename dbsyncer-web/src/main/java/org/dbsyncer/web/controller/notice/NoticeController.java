@@ -5,7 +5,7 @@ package org.dbsyncer.web.controller.notice;
 
 import org.dbsyncer.biz.SystemConfigService;
 import org.dbsyncer.biz.vo.RestResult;
-import org.dbsyncer.parser.MessageService;
+import org.dbsyncer.sdk.notice.MessageService;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

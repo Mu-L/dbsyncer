@@ -1,7 +1,7 @@
 /**
  * DBSyncer Copyright 2020-2026 All Rights Reserved.
  */
-package org.dbsyncer.plugin;
+package org.dbsyncer.plugin.impl;
 
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -12,6 +12,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.dbsyncer.common.config.AppConfig;
+import org.dbsyncer.sdk.notice.NoticeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

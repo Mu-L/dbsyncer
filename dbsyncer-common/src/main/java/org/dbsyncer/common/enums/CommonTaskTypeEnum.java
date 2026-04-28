@@ -17,4 +17,21 @@ public enum CommonTaskTypeEnum {
      */
     VALIDATE_SYNC;
 
+    /**
+     * 按名称解析任务类型，并统一异常语义。
+     *
+     * @param typeStr 任务类型字符串
+     * @return 任务类型枚举
+     */
+    public static CommonTaskTypeEnum parse(String typeStr) {
+        if (typeStr == null || typeStr.trim().isEmpty()) {
+            throw new IllegalArgumentException("任务类型不能为空.");
+        }
+        try {
+            return CommonTaskTypeEnum.valueOf(typeStr);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("未知的任务类型: " + typeStr, e);
+        }
+    }
+
 }

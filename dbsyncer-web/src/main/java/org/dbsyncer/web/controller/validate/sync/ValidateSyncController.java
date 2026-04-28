@@ -7,6 +7,7 @@ import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.ValidateSyncService;
 import org.dbsyncer.biz.vo.RestResult;
+import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.web.controller.BaseController;

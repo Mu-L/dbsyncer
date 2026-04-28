@@ -3,8 +3,9 @@
  */
 package org.dbsyncer.plugin.model;
 
-import org.dbsyncer.plugin.enums.NoticeTypeEnum;
 import org.dbsyncer.sdk.enums.ModelEnum;
+import org.dbsyncer.sdk.enums.NoticeTypeEnum;
+import org.dbsyncer.sdk.model.NoticeContent;
 
 import java.util.ArrayList;
 import java.util.List;

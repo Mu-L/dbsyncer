@@ -6,9 +6,10 @@ package org.dbsyncer.plugin.impl;
 import com.alibaba.fastjson2.annotation.JSONField;
 import org.dbsyncer.common.util.JsonUtil;
 import org.dbsyncer.common.util.StringUtil;
-import org.dbsyncer.plugin.model.NoticeContent;
-import org.dbsyncer.plugin.model.NoticeMessage;
-import org.dbsyncer.plugin.model.WeChatNoticeChannel;
+
+import org.dbsyncer.sdk.model.NoticeContent;
+import org.dbsyncer.sdk.model.NoticeMessage;
+import org.dbsyncer.sdk.model.WeChatNoticeChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -37,10 +37,7 @@ import org.dbsyncer.sdk.enums.SortEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.filter.Query;
-import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.model.Filter;
-import org.dbsyncer.sdk.model.Table;
-import org.dbsyncer.sdk.model.ValidateSyncTask;
+import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.spi.TaskService;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
@@ -266,7 +263,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public Paging<ValidateSyncTaskVO> search(Map<String, String> params) {
-        Paging search = taskService.search(params);
+        Paging search = taskService.search(params,CommonTaskTypeEnum.VALIDATE_SYNC);
         Collection data = search.getData();
         if (CollectionUtils.isEmpty(data)) {
             return search;
@@ -299,12 +296,12 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public Object result(String id) {
-        return taskService.result(id);
+        return taskService.get(id);
     }
 
     @Override
     public List<ValidateSyncTaskVO> getAll() {
-        return taskService.getTaskAll().stream()
+        return taskService.getTaskAll(CommonTaskTypeEnum.VALIDATE_SYNC).stream()
                 .map(this::convertTask2Vo)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
@@ -458,13 +455,14 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         }
     }
 
-    private ValidateSyncTaskVO convertTask2Vo(ValidateSyncTask task) {
+    private ValidateSyncTaskVO convertTask2Vo(CommonTask task) {
         if (task == null) {
             return null;
         }
 
-        Connector s = profileComponent.getConnector(task.getSourceConnectorId());
-        Connector t = profileComponent.getConnector(task.getTargetConnectorId());
+        ValidateSyncTask validateSyncTask= (ValidateSyncTask) task;
+        Connector s = profileComponent.getConnector(validateSyncTask.getSourceConnectorId());
+        Connector t = profileComponent.getConnector(validateSyncTask.getTargetConnectorId());
         ValidateSyncTaskVO vo = new ValidateSyncTaskVO(s, t);
         BeanUtils.copyProperties(task, vo);
         return vo;

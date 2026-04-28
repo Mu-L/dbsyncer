@@ -1,7 +1,7 @@
 /**
  * DBSyncer Copyright 2020-2026 All Rights Reserved.
  */
-package org.dbsyncer.plugin.enums;
+package org.dbsyncer.sdk.enums;
 
 /**
  * 通知类型枚举

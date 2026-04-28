@@ -3,7 +3,9 @@
  */
 package org.dbsyncer.plugin.model;
 
-import org.dbsyncer.plugin.enums.NoticeTypeEnum;
+
+import org.dbsyncer.sdk.enums.NoticeTypeEnum;
+import org.dbsyncer.sdk.model.NoticeContent;
 
 /**
  * 测试通知消息

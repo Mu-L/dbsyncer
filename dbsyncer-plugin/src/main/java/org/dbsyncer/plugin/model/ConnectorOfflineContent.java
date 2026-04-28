@@ -3,7 +3,8 @@
  */
 package org.dbsyncer.plugin.model;
 
-import org.dbsyncer.plugin.enums.NoticeTypeEnum;
+
+import org.dbsyncer.sdk.enums.NoticeTypeEnum;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,7 @@ import java.util.List;
  * @version 1.0.0
  * @date 2026-03-07 19:00
  */
-public final class ConnectorOfflineContent extends NoticeContent {
+public final class ConnectorOfflineContent extends org.dbsyncer.sdk.model.NoticeContent {
 
     private List<ErrorItem> errorItems;
 

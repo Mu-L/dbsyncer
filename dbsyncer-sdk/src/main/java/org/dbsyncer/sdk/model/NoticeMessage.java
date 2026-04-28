@@ -1,7 +1,9 @@
 /**
  * DBSyncer Copyright 2020-2026 All Rights Reserved.
  */
-package org.dbsyncer.plugin.model;
+package org.dbsyncer.sdk.model;
+
+
 
 import java.util.List;
 

@@ -25,7 +25,7 @@ import org.dbsyncer.sdk.enums.OperationEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.filter.AbstractFilter;
 import org.dbsyncer.sdk.filter.BooleanFilter;
-import org.dbsyncer.sdk.filter.impl.ListFilter;
+import org.dbsyncer.sdk.filter.impl.InFilter;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.Filter;
@@ -301,8 +301,8 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
                 builder.query(dynamicQuery);
             }
             int size = 10000;
-            if (filter.getFilters()!=null && filter.getFilters().get(0) instanceof ListFilter) {
-                size =  ((ListFilter) filter.getFilters().get(0)).getBindValues().size();
+            if (!CollectionUtils.isEmpty(filter.getFilters())&& filter.getFilters().get(0) instanceof InFilter) {
+                size =  ((InFilter) filter.getFilters().get(0)).getBindValues().size();
             }
             builder.size(size);
         }else {
@@ -535,8 +535,8 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
 
 
     private QueryBuilder convertFilterToQuery(AbstractFilter p) {
-        if (p instanceof ListFilter) {
-            ListFilter inList = (ListFilter) p;
+        if (p instanceof InFilter) {
+            InFilter inList = (InFilter) p;
             List<Object> raw = inList.getBindValues();
             if (CollectionUtils.isEmpty(raw)) {
                 return null;
@@ -649,7 +649,7 @@ public final class ElasticsearchConnector extends AbstractConnector implements C
             request.add(req);
             return;
         }
-        if (isInsert(event) || StringUtil.equals(ConnectorConstant.OPERTION_UPSERT, event)) {
+        if (isInsert(event)) {
             IndexRequest req = new IndexRequest(index, type, id);
             req.source(data, XContentType.JSON);
             request.add(req);
