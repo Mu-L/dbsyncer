@@ -3,6 +3,8 @@
  */
 package org.dbsyncer.common.enums;
 
+import org.dbsyncer.common.util.StringUtil;
+
 /**
  * 任务类型枚举
  *
@@ -24,13 +26,13 @@ public enum CommonTaskTypeEnum {
      * @return 任务类型枚举
      */
     public static CommonTaskTypeEnum parse(String typeStr) {
-        if (typeStr == null || typeStr.trim().isEmpty()) {
-            throw new IllegalArgumentException("任务类型不能为空.");
+        if (StringUtil.isBlank(typeStr)) {
+            return null;
         }
         try {
             return CommonTaskTypeEnum.valueOf(typeStr);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("未知的任务类型: " + typeStr, e);
+            return null;
         }
     }
 

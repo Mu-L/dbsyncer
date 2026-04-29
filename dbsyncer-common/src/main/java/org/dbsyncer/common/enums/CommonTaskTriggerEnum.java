@@ -44,6 +44,14 @@ public enum CommonTaskTriggerEnum {
         return null;
     }
 
+    public static boolean isOnce(String code) {
+        return ONCE.code.equals(code);
+    }
+
+    public static boolean isTiming(String code) {
+        return TIMING.code.equals(code);
+    }
+
     public String getCode() {
         return code;
     }
