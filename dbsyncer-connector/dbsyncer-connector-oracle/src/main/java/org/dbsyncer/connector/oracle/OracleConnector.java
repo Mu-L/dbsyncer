@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.connector.oracle;
 
+import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.oracle.cdc.OracleListener;
 import org.dbsyncer.connector.oracle.schema.OracleSchemaResolver;
@@ -68,7 +69,7 @@ public final class OracleConnector extends AbstractDatabaseConnector {
 
     @Override
     public List<String> getSchemas(DatabaseConnectorInstance connectorInstance, String catalog) {
-        return connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(QUERY_SCHEMA, String.class));
+        return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_SCHEMA, String.class));
     }
 
     @Override
@@ -148,11 +149,70 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, String targetColumnName, Field sourceDefinition, Database database) {
+    public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
+                                        String targetTableName, List<Field> sourceDefinitions,
+                                        List<String> targetColumnNames, Database database) {
+        if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
+            return StringUtil.EMPTY;
+        }
+        int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
+        if (size <= 0) {
+            return StringUtil.EMPTY;
+        }
         String qualifiedTable = qualifyTable(targetInstance, task, targetTableName, database);
-        String col = database.buildWithQuotation(targetColumnName);
-        String type = formatPhysicalType(sourceDefinition);
-        return String.format(Locale.ROOT, "ALTER TABLE %s MODIFY (%s %s)", qualifiedTable, col, type);
+        List<String> alterStatements = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            Field sourceField = sourceDefinitions.get(i);
+            String targetColumn = targetColumnNames.get(i);
+            if (sourceField == null || StringUtil.isBlank(targetColumn)) {
+                continue;
+            }
+            String col = database.buildWithQuotation(targetColumn);
+            String type = formatPhysicalType(sourceField);
+            if (isUnsupportedOnlineModifyType(type)) {
+                // Oracle LONG/LONG RAW 到 LOB 的转换不能通过 MODIFY 完成，需离线迁移（新建列/拷贝/切换）。
+                continue;
+            }
+            // 单列 MODIFY：多列写在一个 MODIFY(...) 中易触发 ORA-22859；writerDDL 仅一次 execute，故用 PL/SQL 批量 EXECUTE IMMEDIATE
+            alterStatements.add(String.format(Locale.ROOT, "ALTER TABLE %s MODIFY (%s %s)", qualifiedTable, col, type));
+        }
+        if (alterStatements.isEmpty()) {
+            return StringUtil.EMPTY;
+        }
+        if (alterStatements.size() == 1) {
+            return alterStatements.get(0);
+        }
+        StringBuilder plsql = new StringBuilder(alterStatements.size() * 80);
+        plsql.append("BEGIN\n");
+        for (String stmt : alterStatements) {
+            plsql.append("  EXECUTE IMMEDIATE '")
+                    .append(escapeForExecuteImmediate(stmt))
+                    .append("';\n");
+        }
+        plsql.append("END;");
+        return plsql.toString();
+    }
+
+    /**
+     * 将动态 SQL 嵌入 EXECUTE IMMEDIATE 的单引号字面量时，单引号需加倍转义。
+     */
+    private static String escapeForExecuteImmediate(String sql) {
+        if (sql == null) {
+            return "";
+        }
+        return sql.replace("'", "''");
+    }
+
+    private boolean isUnsupportedOnlineModifyType(String type) {
+        if (StringUtil.isBlank(type)) {
+            return false;
+        }
+        String normalized = type.trim().toUpperCase(Locale.ROOT);
+        return "CLOB".equals(normalized)
+                || "NCLOB".equals(normalized)
+                || "BLOB".equals(normalized)
+                || "LONG".equals(normalized)
+                || "LONG RAW".equals(normalized);
     }
 
     private String qualifyTable(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
@@ -246,7 +306,7 @@ public final class OracleConnector extends AbstractDatabaseConnector {
         Database database = config.getDatabase();
         MergeContext context = new MergeContext();
 
-        config.getFields().forEach(f-> {
+        config.getFields().forEach(f -> {
             String fieldName = database.buildWithQuotation(f.getName());
             context.fieldNames.add(fieldName);
 
@@ -303,8 +363,34 @@ public final class OracleConnector extends AbstractDatabaseConnector {
 
         // VALUES 子句使用 s.fieldName
         List<String> sFieldNames = new ArrayList<>();
-        context.fieldNames.forEach(f->sFieldNames.add("s." + f));
+        context.fieldNames.forEach(f -> sFieldNames.add("s." + f));
         sql.append(StringUtil.join(sFieldNames, StringUtil.COMMA)).append(")");
+    }
+
+    @Override
+    protected String formatPhysicalType(Field sourceDefinition) {
+        String typeName = sourceDefinition == null ? null : sourceDefinition.getTypeName();
+        if (StringUtil.isNotBlank(typeName)) {
+            String t = typeName.trim().toUpperCase(Locale.ROOT);
+            // Oracle BINARY_FLOAT / BINARY_DOUBLE 不允许带精度参数
+            if ("BINARY_FLOAT".equals(t) || t.startsWith("BINARY_FLOAT(")) {
+                return "BINARY_FLOAT";
+            }
+            if ("BINARY_DOUBLE".equals(t) || t.startsWith("BINARY_DOUBLE(")) {
+                return "BINARY_DOUBLE";
+            }
+            // 避免类似 TIMESTAMP(6)(6) 这种重复拼接，Oracle 仅允许 TIMESTAMP 或 TIMESTAMP(n)
+            if ("TIMESTAMP".equals(t) || t.startsWith("TIMESTAMP(")) {
+                int fsp = Math.max(0, Math.min(9, sourceDefinition.getRatio()));
+                return fsp > 0 ? String.format(Locale.ROOT, "TIMESTAMP(%d)", fsp) : "TIMESTAMP";
+            }
+            if ("RAW".equals(t)) {
+                int len = Math.max(1, sourceDefinition.getColumnSize());
+                // Oracle RAW 必须显式长度：RAW(n)
+                return String.format(Locale.ROOT, "RAW(%d)", len);
+            }
+        }
+        return super.formatPhysicalType(sourceDefinition);
     }
 
     /**

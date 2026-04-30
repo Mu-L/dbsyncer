@@ -96,7 +96,7 @@ public class ValidateSyncTask extends CommonTask {
     private int threadNum = 10;
 
     // 任务状态 0 处理中 1处理结束
-    private Integer processed;
+    private Integer processed = 0;
 
     //表执行快照
     private final ConcurrentSkipListMap<Integer, ValidateTableSnapshot> tableSnapshots = new ConcurrentSkipListMap<>();

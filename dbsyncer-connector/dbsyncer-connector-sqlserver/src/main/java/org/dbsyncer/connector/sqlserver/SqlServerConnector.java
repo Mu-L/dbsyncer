@@ -151,11 +151,32 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, String targetColumnName, Field sourceDefinition, Database database) {
+    public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
+                                        String targetTableName, List<Field> sourceDefinitions,
+                                        List<String> targetColumnNames, Database database) {
+        if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
+            return StringUtil.EMPTY;
+        }
+        int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
+        if (size <= 0) {
+            return StringUtil.EMPTY;
+        }
         String qualifiedTable = qualifyTable(task, targetTableName, database);
-        String col = database.buildWithQuotation(targetColumnName);
-        String type = formatPhysicalType(sourceDefinition);
-        return String.format(Locale.ROOT, "ALTER TABLE %s ALTER COLUMN %s %s", qualifiedTable, col, type);
+        List<String> sqlList = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            Field sourceField = sourceDefinitions.get(i);
+            String targetColumn = targetColumnNames.get(i);
+            if (sourceField == null || StringUtil.isBlank(targetColumn)) {
+                continue;
+            }
+            String col = database.buildWithQuotation(targetColumn);
+            String type = formatPhysicalType(sourceField);
+            sqlList.add(String.format(Locale.ROOT, "ALTER TABLE %s ALTER COLUMN %s %s", qualifiedTable, col, type));
+        }
+        if (sqlList.isEmpty()) {
+            return StringUtil.EMPTY;
+        }
+        return StringUtil.join(sqlList, ";");
     }
 
     /**

@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.connector.postgresql;
 
+import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.connector.postgresql.cdc.PostgreSQLListener;
 import org.dbsyncer.connector.postgresql.schema.PostgreSQLSchemaResolver;
@@ -138,11 +139,33 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, String targetColumnName, Field sourceDefinition, Database database) {
+    public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
+                                        String targetTableName, List<Field> sourceDefinitions,
+                                        List<String> targetColumnNames, Database database) {
+        if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
+            return StringUtil.EMPTY;
+        }
+        int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
+        if (size <= 0) {
+            return StringUtil.EMPTY;
+        }
         String qualifiedTable = qualifyTable(task, targetTableName, database);
-        String col = database.buildWithQuotation(targetColumnName);
-        String type = formatPhysicalType(sourceDefinition);
-        return String.format(Locale.ROOT, "ALTER TABLE %s ALTER COLUMN %s TYPE %s", qualifiedTable, col, type);
+        List<String> clauses = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            Field sourceField = sourceDefinitions.get(i);
+            String targetColumn = targetColumnNames.get(i);
+            if (sourceField == null || StringUtil.isBlank(targetColumn)) {
+                continue;
+            }
+            String col = database.buildWithQuotation(targetColumn);
+            String type = formatPhysicalType(sourceField);
+            String usingExpr = buildUsingExpr(col, type);
+            clauses.add(String.format(Locale.ROOT, "ALTER COLUMN %s TYPE %s USING %s", col, type, usingExpr));
+        }
+        if (clauses.isEmpty()) {
+            return StringUtil.EMPTY;
+        }
+        return String.format(Locale.ROOT, "ALTER TABLE %s %s", qualifiedTable, StringUtil.join(clauses, ", "));
     }
     private String qualifyTable(ValidateSyncTask task, String tableName, Database database) {
         String schema = StringUtil.isNotBlank(task.getTargetSchema()) ? task.getTargetSchema() : "public";
@@ -219,6 +242,59 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         sql.append(" ON CONFLICT (");
         sql.append(StringUtil.join(context.pkFieldNames, StringUtil.COMMA));
         sql.append(")");
+    }
+
+    private String buildUsingExpr(String col, String type) {
+        String normalizedType = StringUtil.trim(type).toUpperCase(Locale.ROOT);
+        if (isIntegerType(normalizedType)) {
+            // 非整数字符串置为NULL，避免 timestamp/text -> int 直接报错中断整批DDL
+            return String.format(Locale.ROOT,
+                    "CASE WHEN %1$s IS NULL THEN NULL WHEN (%1$s)::text ~ '^-?[0-9]+$' THEN (%1$s)::text::%2$s ELSE NULL END",
+                    col, type);
+        }
+        if (isDecimalType(normalizedType)) {
+            // 小数目标类型同样做安全转换，无法解析时置为NULL
+            return String.format(Locale.ROOT,
+                    "CASE WHEN %1$s IS NULL THEN NULL WHEN (%1$s)::text ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (%1$s)::text::%2$s ELSE NULL END",
+                    col, type);
+        }
+        return String.format(Locale.ROOT, "%s::text::%s", col, type);
+    }
+
+    private boolean isIntegerType(String type) {
+        return "INT2".equals(type) || "INT4".equals(type) || "INT8".equals(type)
+                || "SMALLINT".equals(type) || "INTEGER".equals(type) || "BIGINT".equals(type);
+    }
+
+    private boolean isDecimalType(String type) {
+        return "REAL".equals(type) || "DOUBLE PRECISION".equals(type)
+                || type.startsWith("NUMERIC") || type.startsWith("DECIMAL");
+    }
+
+    @Override
+    protected String formatPhysicalType(Field sourceDefinition) {
+        if (sourceDefinition == null || StringUtil.isBlank(sourceDefinition.getTypeName())) {
+            return super.formatPhysicalType(sourceDefinition);
+        }
+        String t = sourceDefinition.getTypeName().trim().toUpperCase(Locale.ROOT);
+        // PostgreSQL 在 ALTER COLUMN TYPE 场景不支持 SERIAL 家族伪类型，需转为真实整数类型
+        if ("SERIAL".equals(t)) {
+            return "INT4";
+        }
+        if ("BIGSERIAL".equals(t)) {
+            return "INT8";
+        }
+        if ("SMALLSERIAL".equals(t)) {
+            return "INT2";
+        }
+        // FLOAT4/FLOAT8 在 DDL 中不应带精度参数，统一转标准类型
+        if ("FLOAT4".equals(t) || "REAL".equals(t)) {
+            return "REAL";
+        }
+        if ("FLOAT8".equals(t) || "DOUBLE PRECISION".equals(t) || "DOUBLE".equals(t)) {
+            return "DOUBLE PRECISION";
+        }
+        return super.formatPhysicalType(sourceDefinition);
     }
 
     /**

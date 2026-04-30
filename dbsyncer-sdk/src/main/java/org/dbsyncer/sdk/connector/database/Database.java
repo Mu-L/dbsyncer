@@ -13,6 +13,7 @@ import org.dbsyncer.sdk.model.PageSql;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -100,20 +101,22 @@ public interface Database {
      */
     boolean supportsConnectorType(String connectorType);
 
+
     /**
-     * 构建 MODIFY / ALTER COLUMN 语句，使目标列物理类型与 {@code sourceDefinition} 对齐。
+     * 批量构建 MODIFY / ALTER COLUMN 语句。
+     * 默认实现回退为逐列拼接；建议各数据库方言覆盖为原生批量语法。
      *
-     * @param targetInstance     目标连接实例（含 catalog/schema 上下文）
-     * @param task               校验任务（库名、构架名）
-     * @param targetTableName    目标表名（未加引号）
-     * @param targetColumnName   目标列名（未加引号）
-     * @param sourceDefinition   源端字段元数据，作为期望定义
-     * @param database           目标连接器 {@link Database}（引号规则）
-     * @return 可执行的 DDL（不含 SDK 写入 DDL 时追加的唯一标识前缀，由连接器统一处理）
+     * @param targetInstance      目标连接实例
+     * @param task                校验任务
+     * @param targetTableName     目标表名
+     * @param sourceDefinitions   源端字段定义列表（期望形态）
+     * @param targetColumnNames   目标列名列表（与 sourceDefinitions 一一对应）
+     * @param database            目标连接器 Database（引号规则）
+     * @return 可执行批量 DDL
      */
-    String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
-                                String targetTableName, String targetColumnName,
-                                Field sourceDefinition, Database database);
+    String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
+                                         String targetTableName, List<Field> sourceDefinitions,
+                                         List<String> targetColumnNames, Database database);
 
     /**
      * 健康检查

@@ -149,11 +149,32 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, String targetColumnName, Field sourceDefinition, Database database) {
+    public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
+                                        String targetTableName, List<Field> sourceDefinitions,
+                                        List<String> targetColumnNames, Database database) {
+        if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
+            return StringUtil.EMPTY;
+        }
+        int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
+        if (size <= 0) {
+            return StringUtil.EMPTY;
+        }
         String qualifiedTable = qualifyTable(targetInstance, task, targetTableName, database);
-        String col = database.buildWithQuotation(targetColumnName);
-        String type = formatPhysicalType(sourceDefinition);
-        return String.format(Locale.ROOT, "ALTER TABLE %s MODIFY COLUMN %s %s", qualifiedTable, col, type);
+        List<String> clauses = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            Field sourceField = sourceDefinitions.get(i);
+            String targetColumn = targetColumnNames.get(i);
+            if (sourceField == null || StringUtil.isBlank(targetColumn)) {
+                continue;
+            }
+            String col = database.buildWithQuotation(targetColumn);
+            String type = formatPhysicalType(sourceField);
+            clauses.add(String.format(Locale.ROOT, "MODIFY COLUMN %s %s", col, type));
+        }
+        if (clauses.isEmpty()) {
+            return StringUtil.EMPTY;
+        }
+        return String.format(Locale.ROOT, "ALTER TABLE %s %s", qualifiedTable, StringUtil.join(clauses, ", "));
     }
 
     private String qualifyTable(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
@@ -268,5 +289,40 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
             return sql.replaceFirst(regex, replacement);
         }
         return sql;
+    }
+
+    @Override
+    protected String formatPhysicalType(Field sourceDefinition) {
+        if (sourceDefinition == null || StringUtil.isBlank(sourceDefinition.getTypeName())) {
+            return super.formatPhysicalType(sourceDefinition);
+        }
+        String t = sourceDefinition.getTypeName().trim().toUpperCase(Locale.ROOT);
+
+        // MySQL MODIFY COLUMN 场景下 ENUM/SET 必须带枚举定义，缺失时回退为 VARCHAR 避免语法错误。
+        if ("ENUM".equals(t) || "SET".equals(t)) {
+            int len = sourceDefinition.getColumnSize() > 0 ? sourceDefinition.getColumnSize() : 255;
+            return String.format(Locale.ROOT, "VARCHAR(%d)", len);
+        }
+        // MySQL 8 下 FLOAT/DOUBLE 的单参数定义常导致语法兼容问题，统一输出裸类型。
+        if ("FLOAT".equals(t) || "REAL".equals(t) || t.startsWith("FLOAT(")) {
+            return "FLOAT";
+        }
+        if ("DOUBLE".equals(t) || "DOUBLE PRECISION".equals(t) || t.startsWith("DOUBLE(")) {
+            return "DOUBLE";
+        }
+        // MySQL TIME/TIMESTAMP/DATETIME 精度范围 0-6，避免输出 TIME(8)/TIMESTAMP(19) 等非法定义。
+        if ("TIME".equals(t) || t.startsWith("TIME(")) {
+            int fsp = Math.max(0, Math.min(6, sourceDefinition.getRatio()));
+            return fsp > 0 ? String.format(Locale.ROOT, "TIME(%d)", fsp) : "TIME";
+        }
+        if ("TIMESTAMP".equals(t) || t.startsWith("TIMESTAMP(")) {
+            int fsp = Math.max(0, Math.min(6, sourceDefinition.getRatio()));
+            return fsp > 0 ? String.format(Locale.ROOT, "TIMESTAMP(%d)", fsp) : "TIMESTAMP";
+        }
+        if ("DATETIME".equals(t) || t.startsWith("DATETIME(")) {
+            int fsp = Math.max(0, Math.min(6, sourceDefinition.getRatio()));
+            return fsp > 0 ? String.format(Locale.ROOT, "DATETIME(%d)", fsp) : "DATETIME";
+        }
+        return super.formatPhysicalType(sourceDefinition);
     }
 }
