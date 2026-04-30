@@ -24,6 +24,7 @@ import org.dbsyncer.sdk.listener.DatabaseQuartzListener;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.PageSql;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
@@ -32,6 +33,7 @@ import java.sql.Connection;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -142,6 +144,32 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
         newCursors[cursorArgs.length + 1] = pageSize; // BETWEEN 结束
         return newCursors;
     }
+
+    @Override
+    public boolean supportsConnectorType(String connectorType) {
+        return getConnectorType().equalsIgnoreCase(connectorType);
+    }
+
+    @Override
+    public String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, String targetColumnName, Field sourceDefinition, Database database) {
+        String qualifiedTable = qualifyTable(task, targetTableName, database);
+        String col = database.buildWithQuotation(targetColumnName);
+        String type = formatPhysicalType(sourceDefinition);
+        return String.format(Locale.ROOT, "ALTER TABLE %s ALTER COLUMN %s %s", qualifiedTable, col, type);
+    }
+
+    /**
+     * 可选库前缀 {@code [db].[schema].[table]}；仅 schema + 表名亦可。
+     */
+    private String qualifyTable(ValidateSyncTask task, String tableName, Database database) {
+        String schema = StringUtil.isNotBlank(task.getTargetSchema()) ? task.getTargetSchema() : "dbo";
+        String schemaTable = database.buildWithQuotation(schema) + "." + database.buildWithQuotation(tableName);
+        if (StringUtil.isBlank(task.getTargetDatabase())) {
+            return schemaTable;
+        }
+        return "[" + task.getTargetDatabase() + "]." + schemaTable;
+    }
+
 
     @Override
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) {

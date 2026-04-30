@@ -33,6 +33,7 @@ import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.DefaultConnectorServiceContext;
 import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.SortEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
@@ -274,6 +275,8 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
                 ValidateSyncTask t = (ValidateSyncTask) task;
                 ValidateSyncTaskVO vo = convertTask2Vo(t);
                 if (vo != null) {
+                    long errorCount = countTaskDetail(t.getId());
+                    vo.setErrorCount(errorCount);
                     list.add(vo);
                 }
             }
@@ -439,6 +442,21 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         // 按升序展示表
         Collections.sort(tables, Comparator.comparing(Table::getName));
         return tables;
+    }
+
+    /**
+     * 获取有异常的数据
+     * @param taskId
+     * @return
+     */
+    private long countTaskDetail(String taskId) {
+        Query query = new Query(1, 1);
+        query.setQueryTotal(true);
+        query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
+        query.addFilter(ConfigConstant.TASK_ID, taskId);
+        query.addFilter(ConfigConstant.TASK_DIFF_TOTAL, FilterEnum.GT,0);
+        Paging paging = storageService.query(query);
+        return paging.getTotal();
     }
 
     private void resetTableGroupAllIndex(String taskId) {

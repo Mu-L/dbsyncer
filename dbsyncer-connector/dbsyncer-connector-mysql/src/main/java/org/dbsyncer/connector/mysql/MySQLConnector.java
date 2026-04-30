@@ -22,16 +22,14 @@ import org.dbsyncer.sdk.listener.DatabaseQuartzListener;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.PageSql;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 
 import java.sql.Connection;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -143,6 +141,30 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
         newCursors[cursorArgs.length] = 0; // OFFSET
         newCursors[cursorArgs.length + 1] = pageSize; // LIMIT
         return newCursors;
+    }
+
+    @Override
+    public boolean supportsConnectorType(String connectorType) {
+        return getConnectorType().equalsIgnoreCase(connectorType);
+    }
+
+    @Override
+    public String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, String targetColumnName, Field sourceDefinition, Database database) {
+        String qualifiedTable = qualifyTable(targetInstance, task, targetTableName, database);
+        String col = database.buildWithQuotation(targetColumnName);
+        String type = formatPhysicalType(sourceDefinition);
+        return String.format(Locale.ROOT, "ALTER TABLE %s MODIFY COLUMN %s %s", qualifiedTable, col, type);
+    }
+
+    private String qualifyTable(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
+                                String tableName, Database database) {
+        String dbName = StringUtil.isNotBlank(targetInstance.getCatalog())
+                ? targetInstance.getCatalog()
+                : task.getTargetDatabase();
+        if (StringUtil.isBlank(dbName)) {
+            return database.buildWithQuotation(tableName);
+        }
+        return database.buildWithQuotation(dbName) + "." + database.buildWithQuotation(tableName);
     }
 
     @Override

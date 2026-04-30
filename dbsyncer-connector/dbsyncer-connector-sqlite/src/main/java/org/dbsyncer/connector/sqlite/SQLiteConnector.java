@@ -19,8 +19,10 @@ import org.dbsyncer.sdk.enums.ListenerTypeEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.listener.DatabaseQuartzListener;
 import org.dbsyncer.sdk.listener.Listener;
+import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.PageSql;
 import org.dbsyncer.sdk.model.Table;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
@@ -142,6 +144,16 @@ public final class SQLiteConnector extends AbstractDatabaseConnector {
         newCursors[cursorArgs.length] = pageSize; // LIMIT
         newCursors[cursorArgs.length + 1] = 0; // OFFSET
         return newCursors;
+    }
+
+    @Override
+    public boolean supportsConnectorType(String connectorType) {
+        return getConnectorType().equalsIgnoreCase(connectorType);
+    }
+
+    @Override
+    public String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, String targetColumnName, Field sourceDefinition, Database database) {
+          throw new SQLiteException("sqlLite暂时不支持该功能");
     }
 
     @Override

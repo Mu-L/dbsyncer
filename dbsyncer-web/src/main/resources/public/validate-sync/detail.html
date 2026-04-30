@@ -4,6 +4,28 @@
 
 <!-- 校验结果详情 -->
 <div class="form-container">
+    <style>
+        .diff-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .diff-table .diff-msg-cell {
+            max-height: 180px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.5;
+        }
+
+        .diff-table .diff-source-table-cell {
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+    </style>
+
     <div class="card-header">
         <h3 class="card-title text-center">校验结果详情</h3>
     </div>
@@ -44,12 +66,13 @@
             </thead>
             <tbody id="detail-result-table"></tbody>
         </table>
+        <div class="blank-block"></div>
     </div>
 </div>
 
 <!-- 差异详情弹窗 -->
 <div id="diffDetailOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:var(--z-modal-backdrop, 1040);">
-    <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:8px; width:800px; max-height:80vh; display:flex; flex-direction:column; z-index:var(--z-modal, 1050);">
+    <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:8px; width:min(1100px, 92vw); max-height:80vh; display:flex; flex-direction:column; z-index:var(--z-modal, 1050);">
         <div class="card-header flex items-center justify-between" style="padding:16px 20px;">
             <h3 class="card-title" style="margin:0;"><i class="fa fa-list-alt mr-2"></i>差异详情</h3>
             <button class="table-action-btn" id="closeDiffModal"><i class="fa fa-times"></i></button>
@@ -65,7 +88,7 @@
                 </div>
             </div>
             <!-- 差异数据表格 -->
-            <table class="table">
+            <table class="table diff-table">
                 <thead id="diffTableHead"></thead>
                 <tbody id="diffTableBody"></tbody>
             </table>
@@ -240,17 +263,18 @@
                     $('#diffSummary').hide();
                 }
 
-                var headHtml = '<tr><th>源表名称</th><th>类型</th><th>主键/标识</th><th>异常</th></tr>';
+                var headHtml = '<tr><th style="width:170px;">源表名称</th><th style="width:120px;">类型</th><th style="width:220px;">主键/标识</th><th>异常</th></tr>';
                 var bodyHtml = '';
                 data.forEach(function (d) {
-
-                    var msgBadge = '<span class="badge badge-error mr-2">' + d.msg + '</span>';
+                    var safeMsg = escapeHtml(d.msg || '-');
+                    var msgHtml = '<div class="diff-msg-cell">' + safeMsg + '</div>';
+                    var sourceTableHtml = '<div class="diff-source-table-cell">' + escapeHtml(tableNameOuter) + '</div>';
                     var typeText = d.type || d.objType || '-';
                     bodyHtml += '<tr>' +
-                        '<td>' + escapeHtml(tableNameOuter) + '</td>' +
+                        '<td>' + sourceTableHtml + '</td>' +
                         '<td>' + escapeHtml(typeText) + '</td>' +
                         '<td>' + escapeHtml(d.key || '-') + '</td>' +
-                        '<td>' + msgBadge + '</td>' +
+                        '<td style="white-space:normal; word-break:break-word; overflow-wrap:anywhere;">' + msgHtml + '</td>' +
                         '</tr>';
                 });
                 if (data.length === 0) {

@@ -7,6 +7,7 @@ import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.SortEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.filter.impl.IntFilter;
+import org.dbsyncer.sdk.filter.impl.LongFilter;
 import org.dbsyncer.sdk.filter.impl.StringFilter;
 
 import java.util.ArrayList;
@@ -84,6 +85,11 @@ public class Query {
     public void addFilter(String name, int value) {
         booleanFilter.add(new IntFilter(name, value));
     }
+
+    public void addFilter(String name, FilterEnum filterEnum, long value) {
+        booleanFilter.add(new LongFilter(name, filterEnum, value));
+    }
+
 
     public StorageEnum getType() {
         return type;

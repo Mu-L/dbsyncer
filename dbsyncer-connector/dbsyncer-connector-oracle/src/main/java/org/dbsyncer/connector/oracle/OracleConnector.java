@@ -17,7 +17,9 @@ import org.dbsyncer.sdk.constant.DatabaseConstant;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
 import org.dbsyncer.sdk.listener.DatabaseQuartzListener;
 import org.dbsyncer.sdk.listener.Listener;
+import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.PageSql;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
@@ -26,6 +28,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Oracle连接器实现
@@ -137,6 +140,30 @@ public final class OracleConnector extends AbstractDatabaseConnector {
         System.arraycopy(cursorArgs, 0, newCursors, 0, cursorArgs.length);
         newCursors[cursorArgs.length] = pageSize;
         return newCursors;
+    }
+
+    @Override
+    public boolean supportsConnectorType(String connectorType) {
+        return getConnectorType().equalsIgnoreCase(connectorType);
+    }
+
+    @Override
+    public String buildModifyColumnSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, String targetColumnName, Field sourceDefinition, Database database) {
+        String qualifiedTable = qualifyTable(targetInstance, task, targetTableName, database);
+        String col = database.buildWithQuotation(targetColumnName);
+        String type = formatPhysicalType(sourceDefinition);
+        return String.format(Locale.ROOT, "ALTER TABLE %s MODIFY (%s %s)", qualifiedTable, col, type);
+    }
+
+    private String qualifyTable(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
+                                String tableName, Database database) {
+        String schema = StringUtil.isNotBlank(task.getTargetSchema())
+                ? task.getTargetSchema()
+                : targetInstance.getCatalog();
+        if (StringUtil.isBlank(schema)) {
+            return database.buildWithQuotation(tableName);
+        }
+        return database.buildWithQuotation(schema) + "." + database.buildWithQuotation(tableName);
     }
 
     @Override
