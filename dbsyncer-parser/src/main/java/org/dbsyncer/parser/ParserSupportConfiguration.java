@@ -92,7 +92,6 @@ public class ParserSupportConfiguration {
                 return null;
             }
 
-
             @Override
             public Paging result(String id) {
                 return null;
@@ -108,10 +107,6 @@ public class ParserSupportConfiguration {
                 return false;
             }
 
-            @Override
-            public void clearResult(String taskId) {
-
-            }
         };
     }
 

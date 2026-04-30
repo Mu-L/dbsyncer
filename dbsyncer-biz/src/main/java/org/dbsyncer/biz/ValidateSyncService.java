@@ -132,13 +132,6 @@ public interface ValidateSyncService {
      */
     Object getValidateResultDetail(String id);
 
-    /**
-     * 清空指定任务的校验结果明细
-     *
-     * @param taskId 任务ID
-     */
-    void clearResult(String taskId);
-
     String addTableGroup(Map<String, String> params);
 
     String editTableGroup(Map<String, String> params);

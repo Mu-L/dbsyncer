@@ -265,21 +265,6 @@ public class ValidateSyncController extends BaseController {
     }
 
     /**
-     * 清空指定任务的校验结果
-     */
-    @PostMapping("/clearResult")
-    @ResponseBody
-    public RestResult clearResult(@RequestParam(value = "taskId") String taskId) {
-        try {
-            validateSyncService.clearResult(taskId);
-            return RestResult.restSuccess("清空成功");
-        } catch (Exception e) {
-            logger.error(e.getLocalizedMessage(), e);
-            return RestResult.restFail(e.getMessage());
-        }
-    }
-
-    /**
      * 分页查询校验结果明细
      */
     @PostMapping("/searchResult")

@@ -53,7 +53,7 @@ public interface TaskService<T extends CommonTask> {
     /**
      * 任务列表
      */
-    Paging search(Map<String, String> param,CommonTaskTypeEnum commonTaskTypeEnum);
+    Paging search(Map<String, String> param, CommonTaskTypeEnum commonTaskTypeEnum);
 
     /**
      * 查看任务执行详情
@@ -62,21 +62,17 @@ public interface TaskService<T extends CommonTask> {
 
     /**
      * 获取所有任务 根据任务类型
+     *
      * @return
      */
     List<CommonTask> getTaskAll(CommonTaskTypeEnum commonTaskTypeEnum);
+
     /**
      * 检查任务状态
+     *
      * @param taskId
      * @return
      */
     boolean isRunning(String taskId);
-
-    /**
-     * 清空指定任务的校验结果明细
-     *
-     * @param taskId 任务ID
-     */
-    void clearResult(String taskId);
 
 }

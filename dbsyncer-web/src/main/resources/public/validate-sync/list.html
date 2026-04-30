@@ -28,7 +28,7 @@
             <thead>
             <tr>
                 <th></th>
-                <th>名称</th>
+                <th>任务名称</th>
                 <th>校验方案</th>
                 <th>触发方式</th>
                 <th>结果</th>
@@ -166,16 +166,35 @@
         return stateBtn.join('');
     }
 
-    // 渲染结果列：有执行记录（updateTime）时可查看结果；运行状态由「状态」列展示，此处不重复
+    /**
+     * 结果列：已有执行记录时，根据后端 errorCount（diffTotal&gt;0 的明细条数）展示「异常：n」或「正常」。
+     * @param {Object} task 列表行数据（含 errorCount、updateTime）
+     */
     function renderResultColumn(task) {
-        const hasResult = !!task.updateTime;
-        const viewLink = `<a href="javascript:void(0)" class="text-primary" onclick="doLoader('/validate-sync/page/detail?id=${task.id}')">
-                        <i class="fa fa-bar-chart"></i> 查看结果
-                    </a>`;
-        if (hasResult) {
-            return viewLink;
+        var n = Number(task.errorCount);
+        if (isNaN(n) || n < 0) {
+            n = 0;
         }
-        return '<span class="text-gray-400">-</span>';
+        if (task.progress === null || task.progress === undefined || task.progress === '') {
+            return "";
+        }
+        var progress = Number(task.progress);
+            if (isNaN(progress) || progress < 0) {
+                progress = 0;
+                return "";
+            }
+            if (progress === 0) {
+                return "";
+            }
+            if (progress > 100) {
+                progress = 100;
+            }
+            if (n > 0) {
+                return '<span>异常：<span class="badge badge-error">' + n + '</span>'
+                       + '&nbsp;<span class="badge badge-primary mr-2">进度：' + progress + '%</span>';
+            }
+            return '<span class="badge badge-primary mr-2">进度：' + progress + '%</span>';
+       
     }
 
     // 页面初始化
@@ -193,8 +212,8 @@
                 return `
                     <tr>
                         <td>${index}</td>
-                        <td title="${escapeHtml(task.name)}">
-                            <span>${escapeHtml(task.name)}</span>
+                        <td>
+                            <a href="javascript:void(0)" class="text-primary hover:underline cursor-pointer" title="点击查看详情" onclick="doLoader('/validate-sync/page/detail?id=${String(task.id).replace(/"/g, '')}')">${escapeHtml(task.name)}</a>
                         </td>
                         <td title="${escapeHtml(task.sourceConnector.name || '')} > ${escapeHtml(task.targetConnector.name || '')}">
                             <div class="flex items-center">
@@ -217,15 +236,12 @@
                                     <i class="fa fa-edit"></i>
                                 </button>
                                 ${renderTaskStateButton(task.status || 0, task.id)}
-                                <button class="table-action-btn copy" title="复制" onclick="copyTask('${task.id}')">
-                                    <i class="fa fa-copy"></i>
-                                </button>
                             </div>
                         </td>
                     </tr>
                 `;
             },
-            emptyHtml:'<td colspan="7" class="text-center"><i class="fa fa-exchange empty-icon"></i><p class="empty-text">暂无任务</p><p class="empty-description">点击"添加"按钮创建第一个任务</p></td>',
+            emptyHtml:'<td colspan="8" class="text-center"><i class="fa fa-exchange empty-icon"></i><p class="empty-text">暂无任务</p><p class="empty-description">点击"添加"按钮创建第一个任务</p></td>',
             customPageSize:true
         });
 

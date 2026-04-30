@@ -165,9 +165,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         return JsonUtil.jsonToObj(JsonUtil.objToJson(tableGroup), TableGroup.class);
     }
 
-
     /**
      * 匹配相似表
+     *
      * @param validateSyncTask
      */
     private void matchSimilarTableGroups(ValidateSyncTask validateSyncTask) {
@@ -212,6 +212,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             throw new IllegalArgumentException("Task not found");
         }
         checkTask(task, params);
+        resetTaskSnapshot(task);
         List<TableGroup> groupAll = profileComponent.getTableGroupAll(task.getId());
         if (!CollectionUtils.isEmpty(groupAll)) {
             mappingChecker.sortTableGroup(groupAll, params);
@@ -234,6 +235,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         newTask.setStatus(CommonTaskStatusEnum.READY.getCode());
         newTask.setType(CommonTaskTypeEnum.VALIDATE_SYNC.name());
         newTask.setUpdateTime(System.currentTimeMillis());
+        resetTaskSnapshot(newTask);
         String newId = taskService.add(newTask);
         preloadTemplate.reConnect(newTask);
         return newId;
@@ -252,6 +254,8 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public String start(String id) {
+        List<TableGroup> tableGroupList = profileComponent.getSortedTableGroupAll(id);
+        Assert.isTrue(!CollectionUtils.isEmpty(tableGroupList), "任务未配置表映射，无法启动");
         taskService.start(id);
         return "启动成功";
     }
@@ -264,7 +268,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public Paging<ValidateSyncTaskVO> search(Map<String, String> params) {
-        Paging search = taskService.search(params,CommonTaskTypeEnum.VALIDATE_SYNC);
+        Paging search = taskService.search(params, CommonTaskTypeEnum.VALIDATE_SYNC);
         Collection data = search.getData();
         if (CollectionUtils.isEmpty(data)) {
             return search;
@@ -277,6 +281,8 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
                 if (vo != null) {
                     long errorCount = countTaskDetail(t.getId());
                     vo.setErrorCount(errorCount);
+                    List<TableGroup> tableGroupList = profileComponent.getSortedTableGroupAll(t.getId());
+                    vo.setProgress(calculateProgressPercent(t, tableGroupList.size()));
                     list.add(vo);
                 }
             }
@@ -333,12 +339,6 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             return null;
         }
         return paging.getData().iterator().next();
-    }
-
-    @Override
-    public void clearResult(String taskId) {
-        Assert.hasText(taskId, "taskId is required.");
-        taskService.clearResult(taskId);
     }
 
     @Override
@@ -446,6 +446,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     /**
      * 获取有异常的数据
+     *
      * @param taskId
      * @return
      */
@@ -454,7 +455,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         query.setQueryTotal(true);
         query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
         query.addFilter(ConfigConstant.TASK_ID, taskId);
-        query.addFilter(ConfigConstant.TASK_DIFF_TOTAL, FilterEnum.GT,0);
+        query.addFilter(ConfigConstant.TASK_DIFF_TOTAL, FilterEnum.GT, 0);
         Paging paging = storageService.query(query);
         return paging.getTotal();
     }
@@ -478,7 +479,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             return null;
         }
 
-        ValidateSyncTask validateSyncTask= (ValidateSyncTask) task;
+        ValidateSyncTask validateSyncTask = (ValidateSyncTask) task;
         Connector s = profileComponent.getConnector(validateSyncTask.getSourceConnectorId());
         Connector t = profileComponent.getConnector(validateSyncTask.getTargetConnectorId());
         ValidateSyncTaskVO vo = new ValidateSyncTaskVO(s, t);
@@ -544,6 +545,44 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         task.setSourceColumn(sourceColumn);
     }
 
+    /**
+     * 进度百分比计算：
+     * completed = (最小索引 - 1) + (快照中 status=1 的个数)
+     * progress = completed / 表总数 * 100
+     *
+     * @param task      校验任务
+     * @param totalSize 表总数
+     * @return 百分比（0~100）
+     */
+    private Integer calculateProgressPercent(ValidateSyncTask task, int totalSize) {
+
+        if (task.getProcessed() == null) {
+            return null;
+        }
+        if (task.getProcessed() != null && task.getProcessed() == 1) {
+            return 100;
+        }
+        if (task.getTableSnapshots().isEmpty()) {
+            return 0;
+        }
+        int minIndex = task.getTableSnapshots().firstKey();
+        long doneCount = task.getTableSnapshots().values().stream()
+                .filter(snapshot -> snapshot != null && snapshot.getStatus() == 1)
+                .count();
+        long completed = Math.max(0, minIndex - 1L) + doneCount;
+        if (completed > totalSize) {
+            completed = totalSize;
+        }
+        return (int) ((completed * 100) / totalSize);
+    }
+
+    private void resetTaskSnapshot(ValidateSyncTask task) {
+        if (task == null) {
+            return;
+        }
+        task.setProcessed(0);
+        task.getTableSnapshots().clear();
+    }
 
     protected void assertRunning(String taskId) {
         synchronized (LOCK) {
