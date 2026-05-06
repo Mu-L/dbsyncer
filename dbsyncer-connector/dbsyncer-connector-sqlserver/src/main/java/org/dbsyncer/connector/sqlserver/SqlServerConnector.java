@@ -147,7 +147,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
 
     @Override
     public boolean supportsConnectorType(String connectorType) {
-        return getConnectorType().equalsIgnoreCase(connectorType);
+        return StringUtil.equals(getConnectorType(), connectorType);
     }
 
     @Override
@@ -198,7 +198,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
         String tableName = commandConfig.getTable().getName();
         // 判断表是否包含标识自增列
         DatabaseConnectorInstance db = (DatabaseConnectorInstance) commandConfig.getConnectorInstance();
-        List<Integer> result = db.execute(databaseTemplate->databaseTemplate.queryForList(String.format(QUERY_TABLE_IDENTITY, tableName), Integer.class));
+        List<Integer> result = db.execute(databaseTemplate -> databaseTemplate.queryForList(String.format(QUERY_TABLE_IDENTITY, tableName), Integer.class));
         // 允许显式插入标识列的值
         if (!CollectionUtils.isEmpty(result)) {
             String insert = String.format(SET_TABLE_IDENTITY_ON, commandConfig.getSchema(), tableName) + targetCommand.get(ConnectorConstant.OPERTION_INSERT)
@@ -210,7 +210,6 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
 
         return targetCommand;
     }
-
     /**
      * 构建主键回查SQL模板（WHERE 条件由上层运行时替换）。
      */

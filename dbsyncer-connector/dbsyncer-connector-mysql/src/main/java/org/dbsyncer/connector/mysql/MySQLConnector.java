@@ -145,7 +145,7 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
 
     @Override
     public boolean supportsConnectorType(String connectorType) {
-        return getConnectorType().equalsIgnoreCase(connectorType);
+        return StringUtil.equals(getConnectorType(), connectorType);
     }
 
     @Override
@@ -159,6 +159,7 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
         if (size <= 0) {
             return StringUtil.EMPTY;
         }
+        //拼接数据库和表名 db.table
         String qualifiedTable = qualifyTable(targetInstance, task, targetTableName, database);
         List<String> clauses = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
@@ -298,31 +299,44 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
         }
         String t = sourceDefinition.getTypeName().trim().toUpperCase(Locale.ROOT);
 
-        // MySQL MODIFY COLUMN 场景下 ENUM/SET 必须带枚举定义，缺失时回退为 VARCHAR 避免语法错误。
+        // MODIFY COLUMN 下 ENUM/SET 若无枚举字面量列表则非法，改为 VARCHAR
         if ("ENUM".equals(t) || "SET".equals(t)) {
             int len = sourceDefinition.getColumnSize() > 0 ? sourceDefinition.getColumnSize() : 255;
             return String.format(Locale.ROOT, "VARCHAR(%d)", len);
         }
-        // MySQL 8 下 FLOAT/DOUBLE 的单参数定义常导致语法兼容问题，统一输出裸类型。
+        // FLOAT/DOUBLE 带单精度参数在部分版本易报错，统一裸类型
         if ("FLOAT".equals(t) || "REAL".equals(t) || t.startsWith("FLOAT(")) {
-            return "FLOAT";
+            int fsp = sourceDefinition.getRatio();
+            if (fsp == 0) {
+                return "FLOAT";
+            }
+            return String.format(Locale.ROOT, "FLOAT(%d,%d)", sourceDefinition.getColumnSize(), fsp);
         }
         if ("DOUBLE".equals(t) || "DOUBLE PRECISION".equals(t) || t.startsWith("DOUBLE(")) {
-            return "DOUBLE";
+            int fsp = sourceDefinition.getRatio();
+            if (fsp == 0) {
+                return "DOUBLE";
+            }
+            return String.format(Locale.ROOT, "DOUBLE(%d,%d)", sourceDefinition.getColumnSize(), fsp);
         }
-        // MySQL TIME/TIMESTAMP/DATETIME 精度范围 0-6，避免输出 TIME(8)/TIMESTAMP(19) 等非法定义。
+        // 小数秒精度仅允许 0–6，勿用 JDBC columnSize 当作 TIME/TIMESTAMP 宽度
         if ("TIME".equals(t) || t.startsWith("TIME(")) {
-            int fsp = Math.max(0, Math.min(6, sourceDefinition.getRatio()));
-            return fsp > 0 ? String.format(Locale.ROOT, "TIME(%d)", fsp) : "TIME";
+            return mysqlTemporalFragment("TIME", sourceDefinition);
         }
         if ("TIMESTAMP".equals(t) || t.startsWith("TIMESTAMP(")) {
-            int fsp = Math.max(0, Math.min(6, sourceDefinition.getRatio()));
-            return fsp > 0 ? String.format(Locale.ROOT, "TIMESTAMP(%d)", fsp) : "TIMESTAMP";
+            return mysqlTemporalFragment("TIMESTAMP", sourceDefinition);
         }
         if ("DATETIME".equals(t) || t.startsWith("DATETIME(")) {
-            int fsp = Math.max(0, Math.min(6, sourceDefinition.getRatio()));
-            return fsp > 0 ? String.format(Locale.ROOT, "DATETIME(%d)", fsp) : "DATETIME";
+            return mysqlTemporalFragment("DATETIME", sourceDefinition);
         }
         return super.formatPhysicalType(sourceDefinition);
+    }
+
+    /**
+     * MySQL
+     */
+    private static String mysqlTemporalFragment(String baseName, Field sourceDefinition) {
+        int fsp = Math.max(0, Math.min(6, sourceDefinition.getRatio()));
+        return fsp > 0 ? String.format(Locale.ROOT, "%s(%d)", baseName, fsp) : baseName;
     }
 }

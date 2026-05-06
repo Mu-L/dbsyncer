@@ -370,27 +370,40 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     @Override
     protected String formatPhysicalType(Field sourceDefinition) {
         String typeName = sourceDefinition == null ? null : sourceDefinition.getTypeName();
-        if (StringUtil.isNotBlank(typeName)) {
-            String t = typeName.trim().toUpperCase(Locale.ROOT);
-            // Oracle BINARY_FLOAT / BINARY_DOUBLE 不允许带精度参数
-            if ("BINARY_FLOAT".equals(t) || t.startsWith("BINARY_FLOAT(")) {
-                return "BINARY_FLOAT";
-            }
-            if ("BINARY_DOUBLE".equals(t) || t.startsWith("BINARY_DOUBLE(")) {
-                return "BINARY_DOUBLE";
-            }
-            // 避免类似 TIMESTAMP(6)(6) 这种重复拼接，Oracle 仅允许 TIMESTAMP 或 TIMESTAMP(n)
-            if ("TIMESTAMP".equals(t) || t.startsWith("TIMESTAMP(")) {
-                int fsp = Math.max(0, Math.min(9, sourceDefinition.getRatio()));
-                return fsp > 0 ? String.format(Locale.ROOT, "TIMESTAMP(%d)", fsp) : "TIMESTAMP";
-            }
-            if ("RAW".equals(t)) {
-                int len = Math.max(1, sourceDefinition.getColumnSize());
-                // Oracle RAW 必须显式长度：RAW(n)
-                return String.format(Locale.ROOT, "RAW(%d)", len);
-            }
+        if (StringUtil.isBlank(typeName)) {
+            return super.formatPhysicalType(sourceDefinition);
+        }
+        String t = typeName.trim().toUpperCase(Locale.ROOT);
+        String oracleSpecific = mapOracleSpecialNumericAndTemporal(t, sourceDefinition);
+        if (oracleSpecific != null) {
+            return oracleSpecific;
         }
         return super.formatPhysicalType(sourceDefinition);
+    }
+
+    /**
+     * MODIFY 子句中 BINARY_FLOAT/DOUBLE、TIMESTAMP、RAW 与基类默认不兼容。
+     */
+    private static String mapOracleSpecialNumericAndTemporal(String t, Field sourceDefinition) {
+        if ("BINARY_FLOAT".equals(t) || t.startsWith("BINARY_FLOAT(")) {
+            return "BINARY_FLOAT";
+        }
+        if ("BINARY_DOUBLE".equals(t) || t.startsWith("BINARY_DOUBLE(")) {
+            return "BINARY_DOUBLE";
+        }
+        if ("TIMESTAMP".equals(t) || t.startsWith("TIMESTAMP(")) {
+            int fsp = Math.max(0, Math.min(9, sourceDefinition.getRatio()));
+            return fsp > 0 ? String.format(Locale.ROOT, "TIMESTAMP(%d)", fsp) : "TIMESTAMP";
+        }
+        if ("RAW".equals(t)) {
+            int len = Math.max(1, sourceDefinition.getColumnSize());
+            return String.format(Locale.ROOT, "RAW(%d)", len);
+        }
+        if ("NUMBER".equals(t)) {
+            int len = Math.max(1, sourceDefinition.getColumnSize());
+            return String.format(Locale.ROOT, "NUMBER(%d,%d)", len, sourceDefinition.getRatio());
+        }
+        return null;
     }
 
     /**

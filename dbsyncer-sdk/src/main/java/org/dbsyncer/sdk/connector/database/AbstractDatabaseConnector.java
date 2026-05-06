@@ -1027,14 +1027,19 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
     }
 
     /**
-     * 生成列定义中的类型片段（不含列名）。
+     * 生成列定义中的类型片段（不含列名），用于同构订正等 DDL。
+     * <p>
+     * JDBC {@link org.dbsyncer.sdk.model.Field#getTypeName()} 在各库上不一致，仅靠裸类型名往往无法构成合法
+     * {@code ALTER ... MODIFY/ALTER COLUMN}；基类覆盖常见 JDBC 族，各连接器再覆写方言特例。
+     * SQL Server 等未覆写的连接器使用本默认行为。
      *
-     * @param sourceDefinition 源端字段
+     * @param sourceDefinition 源端字段元数据
      */
     protected String formatPhysicalType(Field sourceDefinition) {
         String raw = sourceDefinition.getTypeName();
+        // 空类型按 VARCHAR 兜底，避免下游拼接非法 DDL
         if (StringUtil.isBlank(raw)) {
-            return defaultVarchar();
+            return "VARCHAR(255)";
         }
         String t = raw.trim().toUpperCase(Locale.ROOT);
         int size = Math.max(0, sourceDefinition.getColumnSize());
@@ -1043,37 +1048,42 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         if ("BIT".equals(t)) {
             return "BIT";
         }
-
         if ("DECIMAL".equals(t) || "NUMERIC".equals(t)) {
-            int p = size <= 0 ? 38 : size;
-            return String.format(Locale.ROOT, "%s(%d,%d)", t, p, ratio);
+            return formatDecimalTypeFragment(t, size, ratio);
         }
-
-        if (typeNeedsPrecisionScale(t)) {
-            int p = size <= 0 ? (t.contains("DOUBLE") ? 53 : 24) : size;
-            return String.format(Locale.ROOT, "%s(%d)", t, p);
+        if (t.contains("FLOAT") || "REAL".equals(t) || "DOUBLE".equals(t)) {
+            return formatFloatTypeFragment(t, size);
         }
-
-        if (typeNeedsLength(t)) {
-            int len = size > 0 ? size : defaultLengthForCharFamily(t);
-            return String.format(Locale.ROOT, "%s(%d)", t, len);
+        // 字符与二进制串族：需长度；(CHAR || BINARY) 与 (CHAR && !BINARY) || BINARY 等价
+        if (t.contains("CHAR") || t.contains("BINARY")) {
+            return formatCharOrBinaryTypeFragment(t, size);
         }
-
         if (size > 0 && (t.contains("TIMESTAMP") || "TIME".equals(t))) {
-            if (ratio > 0) {
-                return String.format(Locale.ROOT, "%s(%d)", t, Math.min(ratio, 6));
-            }
-            return String.format(Locale.ROOT, "%s(%d)", t, size);
+            return formatTemporalTypeFragment(t, size, ratio);
         }
-
         return t;
     }
 
-    /**
-     * 方言可覆盖：无类型名时的默认类型。
-     */
-    protected String defaultVarchar() {
-        return "VARCHAR(255)";
+    private static String formatDecimalTypeFragment(String t, int size, int ratio) {
+        int p = size <= 0 ? 38 : size;
+        return String.format(Locale.ROOT, "%s(%d,%d)", t, p, ratio);
+    }
+
+    private static String formatFloatTypeFragment(String t, int size) {
+        int p = size <= 0 ? (t.contains("DOUBLE") ? 53 : 24) : size;
+        return String.format(Locale.ROOT, "%s(%d)", t, p);
+    }
+
+    private String formatCharOrBinaryTypeFragment(String t, int size) {
+        int len = size > 0 ? size : defaultLengthForCharFamily(t);
+        return String.format(Locale.ROOT, "%s(%d)", t, len);
+    }
+
+    private static String formatTemporalTypeFragment(String t, int size, int ratio) {
+        if (ratio > 0) {
+            return String.format(Locale.ROOT, "%s(%d)", t, Math.min(ratio, 6));
+        }
+        return String.format(Locale.ROOT, "%s(%d)", t, size);
     }
 
     private int defaultLengthForCharFamily(String t) {
@@ -1083,17 +1093,5 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         return 255;
     }
 
-    private boolean typeNeedsLength(String t) {
-        return t.contains("CHAR") && !t.contains("BINARY")
-                || t.contains("BINARY")
-                || "BIT".equals(t);
-    }
 
-    private boolean typeNeedsPrecisionScale(String t) {
-        return t.contains("FLOAT") || "REAL".equals(t) || "DOUBLE".equals(t);
-    }
-
-    protected boolean equalsIgnoreCase(String connectorType, String expected) {
-        return expected != null && expected.equalsIgnoreCase(StringUtil.trim(connectorType));
-    }
 }

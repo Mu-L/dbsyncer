@@ -135,7 +135,7 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
 
     @Override
     public boolean supportsConnectorType(String connectorType) {
-        return getConnectorType().equalsIgnoreCase(connectorType);
+        return StringUtil.equals(getConnectorType(), connectorType);
     }
 
     @Override
@@ -277,7 +277,19 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
             return super.formatPhysicalType(sourceDefinition);
         }
         String t = sourceDefinition.getTypeName().trim().toUpperCase(Locale.ROOT);
-        // PostgreSQL 在 ALTER COLUMN TYPE 场景不支持 SERIAL 家族伪类型，需转为真实整数类型
+        String serialMapped = mapPostgreSqlSerialToInteger(t);
+        if (serialMapped != null) {
+            return serialMapped;
+        }
+        String floatMapped = mapPostgreSqlFloatAliases(t);
+        if (floatMapped != null) {
+            return floatMapped;
+        }
+        return super.formatPhysicalType(sourceDefinition);
+    }
+
+    /** ALTER TYPE 不能使用 SERIAL 伪类型，映射为底层整数类型。 */
+    private static String mapPostgreSqlSerialToInteger(String t) {
         if ("SERIAL".equals(t)) {
             return "INT4";
         }
@@ -287,14 +299,18 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         if ("SMALLSERIAL".equals(t)) {
             return "INT2";
         }
-        // FLOAT4/FLOAT8 在 DDL 中不应带精度参数，统一转标准类型
+        return null;
+    }
+
+    /** FLOAT4/8 等与基类带精度拼接冲突时，改为 DDL 中的规范名称。 */
+    private static String mapPostgreSqlFloatAliases(String t) {
         if ("FLOAT4".equals(t) || "REAL".equals(t)) {
             return "REAL";
         }
-        if ("FLOAT8".equals(t) || "DOUBLE PRECISION".equals(t) || "DOUBLE".equals(t)) {
+        if ("FLOAT8".equals(t) || "DOUBLE PRECISION".equals(t)) {
             return "DOUBLE PRECISION";
         }
-        return super.formatPhysicalType(sourceDefinition);
+        return null;
     }
 
     /**

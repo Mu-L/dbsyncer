@@ -106,12 +106,14 @@
         };
 
         this.doSearch = function(params, pageNum) {
-            params.pageNum = pageNum || config.pageIndex;
-            params.pageSize = config.pageSize;
+            const searchParams = $.extend({}, this.lastSearchParams || {}, params || {});
+            this.lastSearchParams = $.extend({}, searchParams);
+            searchParams.pageNum = pageNum || config.pageIndex;
+            searchParams.pageSize = config.pageSize;
             const pagination = this;
-            window.doPoster(config.requestUrl, params, function(data) {
+            window.doPoster(config.requestUrl, searchParams, function(data) {
                 if (data.success === true) {
-                    pagination.refreshPagination(data, params);
+                    pagination.refreshPagination(data, searchParams);
                 } else {
                     window.bootGrowl('搜索异常，请重试', 'danger');
                 }
@@ -250,6 +252,7 @@
         // 初始化状态
         this.currentPage = config.pageIndex;
         this.total = 0;
+        this.lastSearchParams = $.extend({}, config.params || {});
         
         // 初始化分页结构
         this.initPaginationStructure();
