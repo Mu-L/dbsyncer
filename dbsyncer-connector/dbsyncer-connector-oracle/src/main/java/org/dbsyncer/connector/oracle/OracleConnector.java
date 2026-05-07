@@ -45,13 +45,6 @@ import java.util.Locale;
  * @Date 2022-05-12 21:14
  */
 public final class OracleConnector extends AbstractDatabaseConnector {
-
-    private static final String QUERY_TABLES_BY_SCHEMA_PAGED = "SELECT TABLE_NAME, TABLE_TYPE FROM ("
-            + "SELECT OBJECT_NAME AS TABLE_NAME, OBJECT_TYPE AS TABLE_TYPE, "
-            + "ROW_NUMBER() OVER (ORDER BY OBJECT_NAME ASC) AS RN "
-            + "FROM ALL_OBJECTS WHERE OWNER = ? AND OBJECT_TYPE IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW')) "
-            + "WHERE RN > ? AND RN <= ?";
-
     private final String QUERY_SCHEMA = "SELECT USERNAME FROM ALL_USERS where USERNAME not in('ANONYMOUS','APEX_030200','APEX_PUBLIC_USER','APPQOSSYS','BI','CTXSYS','DBSNMP','DIP','EXFSYS','FLOWS_FILES','HR','IX','MDDATA','MDSYS','MGMT_VIEW','OE','OLAPSYS','ORACLE_OCM','ORDDATA','ORDPLUGINS','ORDSYS','OUTLN','OWBSYS','OWBSYS_AUDIT','PM','SCOTT','SH','SI_INFORMTN_SCHEMA','SPATIAL_CSW_ADMIN_USR','SPATIAL_WFS_ADMIN_USR','SYS','SYSMAN','SYSTEM','WMSYS','XDB','XS$NULL') ORDER BY USERNAME";
 
     private final OracleConfigValidator configValidator = new OracleConfigValidator();
@@ -82,45 +75,6 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     @Override
     public List<String> getSchemas(DatabaseConnectorInstance connectorInstance, String catalog) {
         return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_SCHEMA, String.class));
-    }
-
-    @Override
-    public List<Table> getTable(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
-        return connectorInstance.execute(databaseTemplate -> {
-            Connection conn = databaseTemplate.getSimpleConnection().getConnection();
-            String effectiveSchema = getSchema(context.getSchema(), conn);
-            if (StringUtil.isBlank(effectiveSchema)) {
-                return Collections.emptyList();
-            }
-            effectiveSchema = effectiveSchema.toUpperCase(Locale.ROOT);
-
-            List<Table> tables = new ArrayList<>();
-            int offset = 0;
-            try (PreparedStatement statement = conn.prepareStatement(QUERY_TABLES_BY_SCHEMA_PAGED)) {
-                while (true) {
-                    statement.setString(1, effectiveSchema);
-                    statement.setInt(2, offset);
-                    statement.setInt(3, offset + ConnectorConstant.TABLE_LIST_PAGE_SIZE);
-                    int rowCount = 0;
-                    try (ResultSet rs = statement.executeQuery()) {
-                        while (rs.next()) {
-                            Table table = new Table();
-                            table.setName(rs.getString("TABLE_NAME"));
-                            table.setType(rs.getString("TABLE_TYPE"));
-                            tables.add(table);
-                            rowCount++;
-                        }
-                    }
-                    if (rowCount < ConnectorConstant.TABLE_LIST_PAGE_SIZE) {
-                        break;
-                    }
-                    offset += ConnectorConstant.TABLE_LIST_PAGE_SIZE;
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException("查询Oracle表列表失败", e);
-            }
-            return tables;
-        });
     }
 
     @Override

@@ -46,10 +46,6 @@ import java.util.Locale;
  */
 public final class PostgreSQLConnector extends AbstractDatabaseConnector {
 
-    private static final String QUERY_TABLES_BY_SCHEMA_PAGED = "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.tables "
-            + "WHERE TABLE_CATALOG = ? AND TABLE_SCHEMA = ? AND TABLE_TYPE IN ('BASE TABLE', 'VIEW') "
-            + "ORDER BY TABLE_NAME ASC LIMIT ? OFFSET ?";
-
     private final String QUERY_DATABASE = "SELECT datname FROM pg_database WHERE datistemplate = FALSE order by datname";
     private final String QUERY_SCHEMA = "SELECT schema_name FROM information_schema.schemata WHERE catalog_name = '#' and schema_name NOT LIKE 'pg_%' AND schema_name not in('information_schema') order by schema_name";
 
@@ -86,53 +82,6 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
     @Override
     public List<String> getSchemas(DatabaseConnectorInstance connectorInstance, String catalog) {
         return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_SCHEMA.replace("#", catalog), String.class));
-    }
-
-    @Override
-    public List<Table> getTable(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
-        return connectorInstance.execute(databaseTemplate -> {
-            Connection conn = databaseTemplate.getSimpleConnection().getConnection();
-            String effectiveCatalog = getCatalog(context.getCatalog(), conn);
-            String effectiveSchema = getSchema(context.getSchema(), conn);
-            if (StringUtil.isBlank(effectiveCatalog) || StringUtil.isBlank(effectiveSchema)) {
-                return Collections.emptyList();
-            }
-
-            List<Table> tables = new ArrayList<>();
-            int offset = 0;
-            try (PreparedStatement statement = conn.prepareStatement(QUERY_TABLES_BY_SCHEMA_PAGED)) {
-                while (true) {
-                    statement.setString(1, effectiveCatalog);
-                    statement.setString(2, effectiveSchema);
-                    statement.setInt(3, ConnectorConstant.TABLE_LIST_PAGE_SIZE);
-                    statement.setInt(4, offset);
-                    int rowCount = 0;
-                    try (ResultSet rs = statement.executeQuery()) {
-                        while (rs.next()) {
-                            Table table = new Table();
-                            table.setName(rs.getString("TABLE_NAME"));
-                            table.setType(normalizeTableType(rs.getString("TABLE_TYPE")));
-                            tables.add(table);
-                            rowCount++;
-                        }
-                    }
-                    if (rowCount < ConnectorConstant.TABLE_LIST_PAGE_SIZE) {
-                        break;
-                    }
-                    offset += ConnectorConstant.TABLE_LIST_PAGE_SIZE;
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException("查询PostgreSQL表列表失败", e);
-            }
-            return tables;
-        });
-    }
-
-    private String normalizeTableType(String tableType) {
-        if (StringUtil.equalsIgnoreCase("BASE TABLE", tableType)) {
-            return "TABLE";
-        }
-        return tableType;
     }
 
     @Override

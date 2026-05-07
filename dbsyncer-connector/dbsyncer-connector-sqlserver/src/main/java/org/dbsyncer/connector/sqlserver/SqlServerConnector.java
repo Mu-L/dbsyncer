@@ -50,13 +50,6 @@ import java.util.Map;
  * @Date 2022-05-22 22:56
  */
 public final class SqlServerConnector extends AbstractDatabaseConnector {
-
-    private static final String QUERY_TABLES_BY_SCHEMA_PAGED = "SELECT TABLE_NAME, TABLE_TYPE FROM ("
-            + "SELECT TABLE_NAME, TABLE_TYPE, ROW_NUMBER() OVER (ORDER BY TABLE_NAME ASC) AS RN "
-            + "FROM INFORMATION_SCHEMA.TABLES "
-            + "WHERE TABLE_CATALOG = ? AND TABLE_SCHEMA = ? AND TABLE_TYPE IN ('BASE TABLE', 'VIEW')) T "
-            + "WHERE RN > ? AND RN <= ?";
-
     private final String QUERY_DATABASE = "SELECT name FROM SYS.DATABASES WHERE database_id > 4 order by name";
     private final String QUERY_SCHEMA = "SELECT name FROM sys.schemas WHERE name NOT IN ('sys','INFORMATION_SCHEMA','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter') order by name";
     private final String QUERY_TABLE_IDENTITY = "select is_identity from sys.columns where object_id = object_id('%s') and is_identity > 0";
@@ -90,59 +83,12 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
 
     @Override
     public List<String> getDatabases(DatabaseConnectorInstance connectorInstance) {
-        return connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(QUERY_DATABASE, String.class));
+        return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_DATABASE, String.class));
     }
 
     @Override
     public List<String> getSchemas(DatabaseConnectorInstance connectorInstance, String catalog) {
-        return connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(QUERY_SCHEMA, String.class));
-    }
-
-    @Override
-    public List<Table> getTable(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
-        return connectorInstance.execute(databaseTemplate -> {
-            Connection conn = databaseTemplate.getSimpleConnection().getConnection();
-            String effectiveCatalog = getCatalog(context.getCatalog(), conn);
-            String effectiveSchema = getSchema(context.getSchema(), conn);
-            if (StringUtil.isBlank(effectiveCatalog) || StringUtil.isBlank(effectiveSchema)) {
-                return Collections.emptyList();
-            }
-
-            List<Table> tables = new ArrayList<>();
-            int offset = 0;
-            try (PreparedStatement statement = conn.prepareStatement(QUERY_TABLES_BY_SCHEMA_PAGED)) {
-                while (true) {
-                    statement.setString(1, effectiveCatalog);
-                    statement.setString(2, effectiveSchema);
-                    statement.setInt(3, offset);
-                    statement.setInt(4, offset + ConnectorConstant.TABLE_LIST_PAGE_SIZE);
-                    int rowCount = 0;
-                    try (ResultSet rs = statement.executeQuery()) {
-                        while (rs.next()) {
-                            Table table = new Table();
-                            table.setName(rs.getString("TABLE_NAME"));
-                            table.setType(normalizeTableType(rs.getString("TABLE_TYPE")));
-                            tables.add(table);
-                            rowCount++;
-                        }
-                    }
-                    if (rowCount < ConnectorConstant.TABLE_LIST_PAGE_SIZE) {
-                        break;
-                    }
-                    offset += ConnectorConstant.TABLE_LIST_PAGE_SIZE;
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException("查询SQLServer表列表失败", e);
-            }
-            return tables;
-        });
-    }
-
-    private String normalizeTableType(String tableType) {
-        if (StringUtil.equalsIgnoreCase("BASE TABLE", tableType)) {
-            return "TABLE";
-        }
-        return tableType;
+        return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_SCHEMA, String.class));
     }
 
     @Override
@@ -268,7 +214,6 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
         return "[" + task.getTargetDatabase() + "]." + schemaTable;
     }
 
-
     @Override
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) {
         Map<String, String> targetCommand = super.getTargetCommand(commandConfig);
@@ -287,6 +232,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
 
         return targetCommand;
     }
+
     /**
      * 构建主键回查SQL模板（WHERE 条件由上层运行时替换）。
      */
@@ -312,7 +258,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
         List<String> updateSets = new ArrayList<>();
         List<String> pkFieldNames = new ArrayList<>();
 
-        config.getFields().forEach(f-> {
+        config.getFields().forEach(f -> {
             String fieldName = database.buildWithQuotation(f.getName());
             fs.add(fieldName);
             sfs.add("s." + fieldName);
@@ -357,15 +303,15 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     @Override
     public Object getPosition(DatabaseConnectorInstance connectorInstance) {
         String sql = "SELECT * from cdc.lsn_time_mapping order by tran_begin_time desc";
-        List<Map<String, Object>> result = connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(sql));
+        List<Map<String, Object>> result = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(sql));
         if (!CollectionUtils.isEmpty(result)) {
             List<Object> list = new ArrayList<>();
-            result.forEach(r-> {
-                r.computeIfPresent("start_lsn", (k, lsn)->new Lsn((byte[]) lsn).toString());
-                r.computeIfPresent("tran_begin_lsn", (k, lsn)->new Lsn((byte[]) lsn).toString());
-                r.computeIfPresent("tran_id", (k, lsn)->new Lsn((byte[]) lsn).toString());
-                r.computeIfPresent("tran_begin_time", (k, tranBeginTime)->DateFormatUtil.timestampToString((Timestamp) tranBeginTime));
-                r.computeIfPresent("tran_end_time", (k, tranEndTime)->DateFormatUtil.timestampToString((Timestamp) tranEndTime));
+            result.forEach(r -> {
+                r.computeIfPresent("start_lsn", (k, lsn) -> new Lsn((byte[]) lsn).toString());
+                r.computeIfPresent("tran_begin_lsn", (k, lsn) -> new Lsn((byte[]) lsn).toString());
+                r.computeIfPresent("tran_id", (k, lsn) -> new Lsn((byte[]) lsn).toString());
+                r.computeIfPresent("tran_begin_time", (k, tranBeginTime) -> DateFormatUtil.timestampToString((Timestamp) tranBeginTime));
+                r.computeIfPresent("tran_end_time", (k, tranEndTime) -> DateFormatUtil.timestampToString((Timestamp) tranEndTime));
                 list.add(r);
             });
             return list;

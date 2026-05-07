@@ -48,7 +48,6 @@ import java.util.stream.Stream;
  */
 public final class MySQLConnector extends AbstractDatabaseConnector {
 
-    private static final String QUERY_TABLES_SCHEMA_SQL = "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_TYPE IN ('BASE TABLE', 'VIEW') ORDER BY TABLE_NAME ASC LIMIT ? OFFSET ?";
     private final MySQLConfigValidator configValidator = new MySQLConfigValidator();
     private final MySQLSchemaResolver schemaResolver = new MySQLSchemaResolver();
     private final Set<String> SYSTEM_DATABASES = Stream.of("information_schema", "mysql", "performance_schema", "sys").collect(Collectors.toSet());
@@ -84,53 +83,6 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
             }
             return Collections.emptyList();
         });
-    }
-
-    @Override
-    public List<Table> getTable(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
-        return connectorInstance.execute(databaseTemplate -> {
-            Connection conn = databaseTemplate.getSimpleConnection().getConnection();
-            String effectiveCatalog = getCatalog(context.getCatalog(), conn);
-            if (StringUtil.isBlank(effectiveCatalog)) {
-                return Collections.emptyList();
-            }
-            List<Table> tables = new ArrayList<>();
-            int offset = 0;
-            try (PreparedStatement statement = conn.prepareStatement(QUERY_TABLES_SCHEMA_SQL)) {
-                while (true) {
-                    int idx = 1;
-                    statement.setString(idx++, effectiveCatalog);
-                    //设置limit
-                    statement.setInt(idx++, ConnectorConstant.TABLE_LIST_PAGE_SIZE);
-                    //设置offset
-                    statement.setInt(idx++, offset);
-                    int rowCount = 0;
-                    try (ResultSet rs = statement.executeQuery()) {
-                        while (rs.next()) {
-                            Table table = new Table();
-                            table.setName(rs.getString("TABLE_NAME"));
-                            table.setType(convertTableType(rs.getString("TABLE_TYPE")));
-                            tables.add(table);
-                            rowCount++;
-                        }
-                    }
-                    if (rowCount < ConnectorConstant.TABLE_LIST_PAGE_SIZE) {
-                        break;
-                    }
-                    offset += ConnectorConstant.TABLE_LIST_PAGE_SIZE;
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException("查询MySQL表列表失败", e);
-            }
-            return tables;
-        });
-    }
-
-    private String convertTableType(String tableType) {
-        if (StringUtil.equalsIgnoreCase("BASE TABLE", tableType)) {
-            return "TABLE";
-        }
-        return tableType;
     }
 
     @Override
