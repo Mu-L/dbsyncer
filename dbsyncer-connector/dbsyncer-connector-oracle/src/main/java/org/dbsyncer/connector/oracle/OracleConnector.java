@@ -11,23 +11,29 @@ import org.dbsyncer.connector.oracle.validator.OracleConfigValidator;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.config.SqlBuilderConfig;
 import org.dbsyncer.sdk.connector.ConfigValidator;
+import org.dbsyncer.sdk.connector.ConnectorServiceContext;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
+import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.constant.DatabaseConstant;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
 import org.dbsyncer.sdk.listener.DatabaseQuartzListener;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.PageSql;
+import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -39,6 +45,12 @@ import java.util.Locale;
  * @Date 2022-05-12 21:14
  */
 public final class OracleConnector extends AbstractDatabaseConnector {
+
+    private static final String QUERY_TABLES_BY_SCHEMA_PAGED = "SELECT TABLE_NAME, TABLE_TYPE FROM ("
+            + "SELECT OBJECT_NAME AS TABLE_NAME, OBJECT_TYPE AS TABLE_TYPE, "
+            + "ROW_NUMBER() OVER (ORDER BY OBJECT_NAME ASC) AS RN "
+            + "FROM ALL_OBJECTS WHERE OWNER = ? AND OBJECT_TYPE IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW')) "
+            + "WHERE RN > ? AND RN <= ?";
 
     private final String QUERY_SCHEMA = "SELECT USERNAME FROM ALL_USERS where USERNAME not in('ANONYMOUS','APEX_030200','APEX_PUBLIC_USER','APPQOSSYS','BI','CTXSYS','DBSNMP','DIP','EXFSYS','FLOWS_FILES','HR','IX','MDDATA','MDSYS','MGMT_VIEW','OE','OLAPSYS','ORACLE_OCM','ORDDATA','ORDPLUGINS','ORDSYS','OUTLN','OWBSYS','OWBSYS_AUDIT','PM','SCOTT','SH','SI_INFORMTN_SCHEMA','SPATIAL_CSW_ADMIN_USR','SPATIAL_WFS_ADMIN_USR','SYS','SYSMAN','SYSTEM','WMSYS','XDB','XS$NULL') ORDER BY USERNAME";
 
@@ -70,6 +82,45 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     @Override
     public List<String> getSchemas(DatabaseConnectorInstance connectorInstance, String catalog) {
         return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_SCHEMA, String.class));
+    }
+
+    @Override
+    public List<Table> getTable(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
+        return connectorInstance.execute(databaseTemplate -> {
+            Connection conn = databaseTemplate.getSimpleConnection().getConnection();
+            String effectiveSchema = getSchema(context.getSchema(), conn);
+            if (StringUtil.isBlank(effectiveSchema)) {
+                return Collections.emptyList();
+            }
+            effectiveSchema = effectiveSchema.toUpperCase(Locale.ROOT);
+
+            List<Table> tables = new ArrayList<>();
+            int offset = 0;
+            try (PreparedStatement statement = conn.prepareStatement(QUERY_TABLES_BY_SCHEMA_PAGED)) {
+                while (true) {
+                    statement.setString(1, effectiveSchema);
+                    statement.setInt(2, offset);
+                    statement.setInt(3, offset + ConnectorConstant.TABLE_LIST_PAGE_SIZE);
+                    int rowCount = 0;
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) {
+                            Table table = new Table();
+                            table.setName(rs.getString("TABLE_NAME"));
+                            table.setType(rs.getString("TABLE_TYPE"));
+                            tables.add(table);
+                            rowCount++;
+                        }
+                    }
+                    if (rowCount < ConnectorConstant.TABLE_LIST_PAGE_SIZE) {
+                        break;
+                    }
+                    offset += ConnectorConstant.TABLE_LIST_PAGE_SIZE;
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("查询Oracle表列表失败", e);
+            }
+            return tables;
+        });
     }
 
     @Override
@@ -144,11 +195,6 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public boolean supportsConnectorType(String connectorType) {
-        return getConnectorType().equalsIgnoreCase(connectorType);
-    }
-
-    @Override
     public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
                                         String targetTableName, List<Field> sourceDefinitions,
                                         List<String> targetColumnNames, Database database) {
@@ -170,7 +216,6 @@ public final class OracleConnector extends AbstractDatabaseConnector {
             String col = database.buildWithQuotation(targetColumn);
             String type = formatPhysicalType(sourceField);
             if (isUnsupportedOnlineModifyType(type)) {
-                // Oracle LONG/LONG RAW 到 LOB 的转换不能通过 MODIFY 完成，需离线迁移（新建列/拷贝/切换）。
                 continue;
             }
             // 单列 MODIFY：多列写在一个 MODIFY(...) 中易触发 ORA-22859；writerDDL 仅一次 execute，故用 PL/SQL 批量 EXECUTE IMMEDIATE
@@ -203,6 +248,9 @@ public final class OracleConnector extends AbstractDatabaseConnector {
         return sql.replace("'", "''");
     }
 
+    /**
+     * Oracle LONG/LONG RAW 到 LOB 的转换不能通过 MODIFY 修改
+     */
     private boolean isUnsupportedOnlineModifyType(String type) {
         if (StringUtil.isBlank(type)) {
             return false;
@@ -371,7 +419,7 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     protected String formatPhysicalType(Field sourceDefinition) {
         String typeName = sourceDefinition == null ? null : sourceDefinition.getTypeName();
         if (StringUtil.isBlank(typeName)) {
-            return super.formatPhysicalType(sourceDefinition);
+            return "VARCHAR2(255)";
         }
         String t = typeName.trim().toUpperCase(Locale.ROOT);
         String oracleSpecific = mapOracleSpecialNumericAndTemporal(t, sourceDefinition);
@@ -390,18 +438,6 @@ public final class OracleConnector extends AbstractDatabaseConnector {
         }
         if ("BINARY_DOUBLE".equals(t) || t.startsWith("BINARY_DOUBLE(")) {
             return "BINARY_DOUBLE";
-        }
-        if ("TIMESTAMP".equals(t) || t.startsWith("TIMESTAMP(")) {
-            int fsp = Math.max(0, Math.min(9, sourceDefinition.getRatio()));
-            return fsp > 0 ? String.format(Locale.ROOT, "TIMESTAMP(%d)", fsp) : "TIMESTAMP";
-        }
-        if ("RAW".equals(t)) {
-            int len = Math.max(1, sourceDefinition.getColumnSize());
-            return String.format(Locale.ROOT, "RAW(%d)", len);
-        }
-        if ("NUMBER".equals(t)) {
-            int len = Math.max(1, sourceDefinition.getColumnSize());
-            return String.format(Locale.ROOT, "NUMBER(%d,%d)", len, sourceDefinition.getRatio());
         }
         return null;
     }

@@ -148,11 +148,6 @@ public final class SQLiteConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public boolean supportsConnectorType(String connectorType) {
-        return getConnectorType().equalsIgnoreCase(connectorType);
-    }
-
-    @Override
     public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, List<Field> sourceDefinitions, List<String> targetColumnNames, Database database) {
         throw new SQLiteException("sqlLite暂时不支持该功能");
     }

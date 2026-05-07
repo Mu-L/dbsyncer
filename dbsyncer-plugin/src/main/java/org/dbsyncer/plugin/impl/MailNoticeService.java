@@ -4,7 +4,7 @@ import com.sun.mail.util.MailSSLSocketFactory;
 import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.plugin.model.*;
-import org.dbsyncer.sdk.model.HttpNoticeChannel;
+import org.dbsyncer.common.model.HttpNoticeChannel;
 import org.dbsyncer.sdk.model.NoticeContent;
 
 import org.dbsyncer.sdk.enums.ModelEnum;

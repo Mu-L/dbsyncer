@@ -4,7 +4,7 @@
 package org.dbsyncer.plugin.impl;
 
 import org.dbsyncer.common.util.JsonUtil;
-import org.dbsyncer.sdk.model.HttpNoticeChannel;
+import org.dbsyncer.common.model.HttpNoticeChannel;
 import org.dbsyncer.sdk.model.NoticeContent;
 import org.dbsyncer.sdk.model.NoticeMessage;
 

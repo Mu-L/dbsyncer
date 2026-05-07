@@ -11,22 +11,29 @@ import org.dbsyncer.connector.postgresql.validator.PostgreSQLConfigValidator;
 import org.dbsyncer.sdk.config.DatabaseConfig;
 import org.dbsyncer.sdk.config.SqlBuilderConfig;
 import org.dbsyncer.sdk.connector.ConfigValidator;
+import org.dbsyncer.sdk.connector.ConnectorServiceContext;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
+import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.constant.DatabaseConstant;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
 import org.dbsyncer.sdk.listener.DatabaseQuartzListener;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.PageSql;
+import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -38,6 +45,10 @@ import java.util.Locale;
  * @Date 2022-05-22 22:56
  */
 public final class PostgreSQLConnector extends AbstractDatabaseConnector {
+
+    private static final String QUERY_TABLES_BY_SCHEMA_PAGED = "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.tables "
+            + "WHERE TABLE_CATALOG = ? AND TABLE_SCHEMA = ? AND TABLE_TYPE IN ('BASE TABLE', 'VIEW') "
+            + "ORDER BY TABLE_NAME ASC LIMIT ? OFFSET ?";
 
     private final String QUERY_DATABASE = "SELECT datname FROM pg_database WHERE datistemplate = FALSE order by datname";
     private final String QUERY_SCHEMA = "SELECT schema_name FROM information_schema.schemata WHERE catalog_name = '#' and schema_name NOT LIKE 'pg_%' AND schema_name not in('information_schema') order by schema_name";
@@ -69,12 +80,59 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
 
     @Override
     public List<String> getDatabases(DatabaseConnectorInstance connectorInstance) {
-        return connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(QUERY_DATABASE, String.class));
+        return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_DATABASE, String.class));
     }
 
     @Override
     public List<String> getSchemas(DatabaseConnectorInstance connectorInstance, String catalog) {
-        return connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(QUERY_SCHEMA.replace("#", catalog), String.class));
+        return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_SCHEMA.replace("#", catalog), String.class));
+    }
+
+    @Override
+    public List<Table> getTable(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
+        return connectorInstance.execute(databaseTemplate -> {
+            Connection conn = databaseTemplate.getSimpleConnection().getConnection();
+            String effectiveCatalog = getCatalog(context.getCatalog(), conn);
+            String effectiveSchema = getSchema(context.getSchema(), conn);
+            if (StringUtil.isBlank(effectiveCatalog) || StringUtil.isBlank(effectiveSchema)) {
+                return Collections.emptyList();
+            }
+
+            List<Table> tables = new ArrayList<>();
+            int offset = 0;
+            try (PreparedStatement statement = conn.prepareStatement(QUERY_TABLES_BY_SCHEMA_PAGED)) {
+                while (true) {
+                    statement.setString(1, effectiveCatalog);
+                    statement.setString(2, effectiveSchema);
+                    statement.setInt(3, ConnectorConstant.TABLE_LIST_PAGE_SIZE);
+                    statement.setInt(4, offset);
+                    int rowCount = 0;
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) {
+                            Table table = new Table();
+                            table.setName(rs.getString("TABLE_NAME"));
+                            table.setType(normalizeTableType(rs.getString("TABLE_TYPE")));
+                            tables.add(table);
+                            rowCount++;
+                        }
+                    }
+                    if (rowCount < ConnectorConstant.TABLE_LIST_PAGE_SIZE) {
+                        break;
+                    }
+                    offset += ConnectorConstant.TABLE_LIST_PAGE_SIZE;
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("查询PostgreSQL表列表失败", e);
+            }
+            return tables;
+        });
+    }
+
+    private String normalizeTableType(String tableType) {
+        if (StringUtil.equalsIgnoreCase("BASE TABLE", tableType)) {
+            return "TABLE";
+        }
+        return tableType;
     }
 
     @Override
@@ -134,11 +192,6 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public boolean supportsConnectorType(String connectorType) {
-        return StringUtil.equals(getConnectorType(), connectorType);
-    }
-
-    @Override
     public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
                                         String targetTableName, List<Field> sourceDefinitions,
                                         List<String> targetColumnNames, Database database) {
@@ -167,6 +220,7 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         }
         return String.format(Locale.ROOT, "ALTER TABLE %s %s", qualifiedTable, StringUtil.join(clauses, ", "));
     }
+
     private String qualifyTable(ValidateSyncTask task, String tableName, Database database) {
         String schema = StringUtil.isNotBlank(task.getTargetSchema()) ? task.getTargetSchema() : "public";
         return database.buildWithQuotation(schema) + "." + database.buildWithQuotation(tableName);
@@ -288,7 +342,9 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         return super.formatPhysicalType(sourceDefinition);
     }
 
-    /** ALTER TYPE 不能使用 SERIAL 伪类型，映射为底层整数类型。 */
+    /**
+     * ALTER TYPE 不能使用 SERIAL 伪类型，映射为底层整数类型。
+     */
     private static String mapPostgreSqlSerialToInteger(String t) {
         if ("SERIAL".equals(t)) {
             return "INT4";
@@ -302,7 +358,9 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         return null;
     }
 
-    /** FLOAT4/8 等与基类带精度拼接冲突时，改为 DDL 中的规范名称。 */
+    /**
+     * FLOAT4/8 等与基类带精度拼接冲突时，改为 DDL 中的规范名称。
+     */
     private static String mapPostgreSqlFloatAliases(String t) {
         if ("FLOAT4".equals(t) || "REAL".equals(t)) {
             return "REAL";
@@ -320,7 +378,7 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         Database database = config.getDatabase();
         UpsertContext context = new UpsertContext();
 
-        config.getFields().forEach(f-> {
+        config.getFields().forEach(f -> {
             String fieldName = database.buildWithQuotation(f.getName());
             context.fieldNames.add(fieldName);
 

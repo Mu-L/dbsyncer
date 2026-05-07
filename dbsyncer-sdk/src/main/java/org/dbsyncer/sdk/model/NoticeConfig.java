@@ -3,8 +3,10 @@
  */
 package org.dbsyncer.sdk.model;
 
-
-
+import org.dbsyncer.common.model.DingTalkNoticeChannel;
+import org.dbsyncer.common.model.HttpNoticeChannel;
+import org.dbsyncer.common.model.MailNoticeChannel;
+import org.dbsyncer.common.model.WeChatNoticeChannel;
 
 /**
  * 通知配置
@@ -20,11 +22,11 @@ public class NoticeConfig {
     private HttpNoticeChannel http = new HttpNoticeChannel();
     private MailNoticeChannel mail = new MailNoticeChannel();
 
-    public WeChatNoticeChannel getWechat() {
+    public org.dbsyncer.common.model.WeChatNoticeChannel getWechat() {
         return wechat;
     }
 
-    public void setWechat(WeChatNoticeChannel wechat) {
+    public void setWechat(org.dbsyncer.common.model.WeChatNoticeChannel wechat) {
         this.wechat = wechat;
     }
 

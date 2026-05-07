@@ -1,7 +1,7 @@
 /**
  * DBSyncer Copyright 2020-2026 All Rights Reserved.
  */
-package org.dbsyncer.sdk.model;
+package org.dbsyncer.common.model;
 
 /**
  * 企业微信告警配置

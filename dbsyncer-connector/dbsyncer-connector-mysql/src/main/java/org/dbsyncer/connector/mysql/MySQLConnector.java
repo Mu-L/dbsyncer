@@ -16,12 +16,15 @@ import org.dbsyncer.sdk.connector.ConfigValidator;
 import org.dbsyncer.sdk.connector.database.AbstractDatabaseConnector;
 import org.dbsyncer.sdk.connector.database.Database;
 import org.dbsyncer.sdk.connector.database.DatabaseConnectorInstance;
+import org.dbsyncer.sdk.connector.ConnectorServiceContext;
+import org.dbsyncer.sdk.constant.ConnectorConstant;
 import org.dbsyncer.sdk.constant.DatabaseConstant;
 import org.dbsyncer.sdk.enums.ListenerTypeEnum;
 import org.dbsyncer.sdk.listener.DatabaseQuartzListener;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.PageSql;
+import org.dbsyncer.sdk.model.Table;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
@@ -29,6 +32,9 @@ import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -42,6 +48,7 @@ import java.util.stream.Stream;
  */
 public final class MySQLConnector extends AbstractDatabaseConnector {
 
+    private static final String QUERY_TABLES_SCHEMA_SQL = "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_TYPE IN ('BASE TABLE', 'VIEW') ORDER BY TABLE_NAME ASC LIMIT ? OFFSET ?";
     private final MySQLConfigValidator configValidator = new MySQLConfigValidator();
     private final MySQLSchemaResolver schemaResolver = new MySQLSchemaResolver();
     private final Set<String> SYSTEM_DATABASES = Stream.of("information_schema", "mysql", "performance_schema", "sys").collect(Collectors.toSet());
@@ -70,13 +77,60 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
 
     @Override
     public List<String> getDatabases(DatabaseConnectorInstance connectorInstance) {
-        return connectorInstance.execute(databaseTemplate-> {
+        return connectorInstance.execute(databaseTemplate -> {
             List<String> databases = databaseTemplate.queryForList("SHOW DATABASES", String.class);
             if (!CollectionUtils.isEmpty(databases)) {
-                return databases.stream().filter(name->!SYSTEM_DATABASES.contains(name.toLowerCase())).collect(Collectors.toList());
+                return databases.stream().filter(name -> !SYSTEM_DATABASES.contains(name.toLowerCase())).collect(Collectors.toList());
             }
             return Collections.emptyList();
         });
+    }
+
+    @Override
+    public List<Table> getTable(DatabaseConnectorInstance connectorInstance, ConnectorServiceContext context) {
+        return connectorInstance.execute(databaseTemplate -> {
+            Connection conn = databaseTemplate.getSimpleConnection().getConnection();
+            String effectiveCatalog = getCatalog(context.getCatalog(), conn);
+            if (StringUtil.isBlank(effectiveCatalog)) {
+                return Collections.emptyList();
+            }
+            List<Table> tables = new ArrayList<>();
+            int offset = 0;
+            try (PreparedStatement statement = conn.prepareStatement(QUERY_TABLES_SCHEMA_SQL)) {
+                while (true) {
+                    int idx = 1;
+                    statement.setString(idx++, effectiveCatalog);
+                    //设置limit
+                    statement.setInt(idx++, ConnectorConstant.TABLE_LIST_PAGE_SIZE);
+                    //设置offset
+                    statement.setInt(idx++, offset);
+                    int rowCount = 0;
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) {
+                            Table table = new Table();
+                            table.setName(rs.getString("TABLE_NAME"));
+                            table.setType(convertTableType(rs.getString("TABLE_TYPE")));
+                            tables.add(table);
+                            rowCount++;
+                        }
+                    }
+                    if (rowCount < ConnectorConstant.TABLE_LIST_PAGE_SIZE) {
+                        break;
+                    }
+                    offset += ConnectorConstant.TABLE_LIST_PAGE_SIZE;
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("查询MySQL表列表失败", e);
+            }
+            return tables;
+        });
+    }
+
+    private String convertTableType(String tableType) {
+        if (StringUtil.equalsIgnoreCase("BASE TABLE", tableType)) {
+            return "TABLE";
+        }
+        return tableType;
     }
 
     @Override
@@ -144,11 +198,6 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public boolean supportsConnectorType(String connectorType) {
-        return StringUtil.equals(getConnectorType(), connectorType);
-    }
-
-    @Override
     public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
                                         String targetTableName, List<Field> sourceDefinitions,
                                         List<String> targetColumnNames, Database database) {
@@ -196,7 +245,7 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
         List<String> fs = new ArrayList<>();
         List<String> vs = new ArrayList<>();
         List<String> dfs = new ArrayList<>();
-        fields.forEach(f-> {
+        fields.forEach(f -> {
             String name = database.buildWithQuotation(f.getName());
             fs.add(name);
             vs.add("?");
@@ -221,7 +270,7 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
 
         List<String> fs = new ArrayList<>();
         List<String> vs = new ArrayList<>();
-        fields.forEach(f-> {
+        fields.forEach(f -> {
             fs.add(database.buildWithQuotation(f.getName()));
             vs.add("?");
         });
@@ -298,26 +347,10 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
             return super.formatPhysicalType(sourceDefinition);
         }
         String t = sourceDefinition.getTypeName().trim().toUpperCase(Locale.ROOT);
-
         // MODIFY COLUMN 下 ENUM/SET 若无枚举字面量列表则非法，改为 VARCHAR
         if ("ENUM".equals(t) || "SET".equals(t)) {
             int len = sourceDefinition.getColumnSize() > 0 ? sourceDefinition.getColumnSize() : 255;
             return String.format(Locale.ROOT, "VARCHAR(%d)", len);
-        }
-        // FLOAT/DOUBLE 带单精度参数在部分版本易报错，统一裸类型
-        if ("FLOAT".equals(t) || "REAL".equals(t) || t.startsWith("FLOAT(")) {
-            int fsp = sourceDefinition.getRatio();
-            if (fsp == 0) {
-                return "FLOAT";
-            }
-            return String.format(Locale.ROOT, "FLOAT(%d,%d)", sourceDefinition.getColumnSize(), fsp);
-        }
-        if ("DOUBLE".equals(t) || "DOUBLE PRECISION".equals(t) || t.startsWith("DOUBLE(")) {
-            int fsp = sourceDefinition.getRatio();
-            if (fsp == 0) {
-                return "DOUBLE";
-            }
-            return String.format(Locale.ROOT, "DOUBLE(%d,%d)", sourceDefinition.getColumnSize(), fsp);
         }
         // 小数秒精度仅允许 0–6，勿用 JDBC columnSize 当作 TIME/TIMESTAMP 宽度
         if ("TIME".equals(t) || t.startsWith("TIME(")) {

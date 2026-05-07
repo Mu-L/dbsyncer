@@ -9,7 +9,7 @@ import org.dbsyncer.common.util.StringUtil;
 
 import org.dbsyncer.sdk.model.NoticeContent;
 import org.dbsyncer.sdk.model.NoticeMessage;
-import org.dbsyncer.sdk.model.WeChatNoticeChannel;
+import org.dbsyncer.common.model.WeChatNoticeChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

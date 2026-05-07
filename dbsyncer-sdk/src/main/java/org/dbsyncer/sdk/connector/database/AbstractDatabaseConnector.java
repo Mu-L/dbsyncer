@@ -1028,12 +1028,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
     /**
      * 生成列定义中的类型片段（不含列名），用于同构订正等 DDL。
-     * <p>
-     * JDBC {@link org.dbsyncer.sdk.model.Field#getTypeName()} 在各库上不一致，仅靠裸类型名往往无法构成合法
-     * {@code ALTER ... MODIFY/ALTER COLUMN}；基类覆盖常见 JDBC 族，各连接器再覆写方言特例。
-     * SQL Server 等未覆写的连接器使用本默认行为。
-     *
-     * @param sourceDefinition 源端字段元数据
      */
     protected String formatPhysicalType(Field sourceDefinition) {
         String raw = sourceDefinition.getTypeName();
@@ -1044,34 +1038,24 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         String t = raw.trim().toUpperCase(Locale.ROOT);
         int size = Math.max(0, sourceDefinition.getColumnSize());
         int ratio = Math.max(0, sourceDefinition.getRatio());
-
-        if ("BIT".equals(t)) {
-            return "BIT";
-        }
-        if ("DECIMAL".equals(t) || "NUMERIC".equals(t)) {
+        //需要设置精度的类型
+        if ("DECIMAL".equals(t) || "NUMERIC".equals(t) || "NUMBER".equals(t)) {
             return formatDecimalTypeFragment(t, size, ratio);
         }
-        if (t.contains("FLOAT") || "REAL".equals(t) || "DOUBLE".equals(t)) {
-            return formatFloatTypeFragment(t, size);
-        }
-        // 字符与二进制串族：需长度；(CHAR || BINARY) 与 (CHAR && !BINARY) || BINARY 等价
-        if (t.contains("CHAR") || t.contains("BINARY")) {
+        //CHAR / VARCHAR / NCHAR / NVARCHAR / 二进制(BINARY/VARBINARY/RAW)
+        if (t.contains("CHAR") || t.contains("BINARY") || t.contains("RAW") || t.contains("BYTEA")) {
             return formatCharOrBinaryTypeFragment(t, size);
-        }
-        if (size > 0 && (t.contains("TIMESTAMP") || "TIME".equals(t))) {
-            return formatTemporalTypeFragment(t, size, ratio);
         }
         return t;
     }
 
     private static String formatDecimalTypeFragment(String t, int size, int ratio) {
-        int p = size <= 0 ? 38 : size;
-        return String.format(Locale.ROOT, "%s(%d,%d)", t, p, ratio);
-    }
-
-    private static String formatFloatTypeFragment(String t, int size) {
-        int p = size <= 0 ? (t.contains("DOUBLE") ? 53 : 24) : size;
-        return String.format(Locale.ROOT, "%s(%d)", t, p);
+        if (size > 0 && ratio > 0) {
+            return String.format(Locale.ROOT, "%s(%d,%d)", t, size, ratio);
+        } else if (size > 0 && ratio == 0) {
+            return String.format(Locale.ROOT, "%s(%d)", t, size);
+        }
+        return t;
     }
 
     private String formatCharOrBinaryTypeFragment(String t, int size) {
@@ -1079,12 +1063,6 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         return String.format(Locale.ROOT, "%s(%d)", t, len);
     }
 
-    private static String formatTemporalTypeFragment(String t, int size, int ratio) {
-        if (ratio > 0) {
-            return String.format(Locale.ROOT, "%s(%d)", t, Math.min(ratio, 6));
-        }
-        return String.format(Locale.ROOT, "%s(%d)", t, size);
-    }
 
     private int defaultLengthForCharFamily(String t) {
         if (t.contains("TEXT") || "CLOB".equals(t) || "NCLOB".equals(t)) {
