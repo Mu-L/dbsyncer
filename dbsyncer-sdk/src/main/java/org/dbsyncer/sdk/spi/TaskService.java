@@ -6,7 +6,6 @@ package org.dbsyncer.sdk.spi;
 import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.sdk.model.CommonTask;
-import org.dbsyncer.sdk.model.ValidateSyncTask;
 
 import java.util.List;
 import java.util.Map;

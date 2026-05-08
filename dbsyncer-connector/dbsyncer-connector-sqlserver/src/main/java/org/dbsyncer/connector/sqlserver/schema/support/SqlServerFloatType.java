@@ -52,7 +52,4 @@ public final class SqlServerFloatType extends FloatType {
         }
         return throwUnsupportedException(val, field);
     }
-
-
-
 }

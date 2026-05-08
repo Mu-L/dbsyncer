@@ -13,7 +13,6 @@ import org.dbsyncer.sdk.model.PageSql;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 

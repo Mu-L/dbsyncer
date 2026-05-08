@@ -8,7 +8,6 @@ import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.flush.impl.TableGroupBufferActuator;
 import org.dbsyncer.sdk.model.CommonTask;
-import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.spi.ServiceFactory;
 import org.dbsyncer.sdk.spi.TableGroupBufferActuatorService;
 import org.dbsyncer.sdk.spi.TaskService;

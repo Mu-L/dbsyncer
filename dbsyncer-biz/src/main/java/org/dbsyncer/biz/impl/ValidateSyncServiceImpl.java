@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.biz.impl;
 
-import org.dbsyncer.biz.RepeatedTableGroupException;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.ValidateSyncService;
 import org.dbsyncer.biz.checker.impl.mapping.MappingChecker;
@@ -22,14 +21,12 @@ import org.dbsyncer.manager.impl.PreloadTemplate;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.util.ConnectorInstanceUtil;
 import org.dbsyncer.parser.util.ConnectorServiceContextUtil;
 import org.dbsyncer.parser.util.PickerUtil;
-import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.DefaultConnectorServiceContext;
 import org.dbsyncer.sdk.constant.ConfigConstant;

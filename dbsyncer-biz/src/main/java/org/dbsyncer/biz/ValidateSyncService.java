@@ -4,7 +4,6 @@
 package org.dbsyncer.biz;
 
 import org.dbsyncer.biz.vo.ValidateSyncTaskVO;
-import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.parser.model.TableGroup;
 
