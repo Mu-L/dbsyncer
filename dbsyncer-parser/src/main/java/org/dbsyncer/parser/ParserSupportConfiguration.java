@@ -51,7 +51,6 @@ public class ParserSupportConfiguration {
     public TaskService taskService() {
         TaskService taskService = serviceFactory.get(TaskService.class);
         if (taskService != null) {
-            // 作为 @Bean 返回，Spring 会自动完成 @Resource 注入与 @PostConstruct 回调
             return taskService;
         }
         return new TaskService<CommonTask>() {

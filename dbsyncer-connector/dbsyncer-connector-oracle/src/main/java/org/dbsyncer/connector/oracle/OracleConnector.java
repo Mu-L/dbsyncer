@@ -145,7 +145,7 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     @Override
     public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
                                         String targetTableName, List<Field> sourceDefinitions,
-                                        List<String> targetColumnNames, Database database) {
+                                        List<String> targetColumnNames) {
         if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
             return StringUtil.EMPTY;
         }
@@ -153,7 +153,7 @@ public final class OracleConnector extends AbstractDatabaseConnector {
         if (size <= 0) {
             return StringUtil.EMPTY;
         }
-        String qualifiedTable = qualifyTable(targetInstance, task, targetTableName, database);
+        String qualifiedTable = qualifyTable(targetInstance, task, targetTableName);
         List<String> alterStatements = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             Field sourceField = sourceDefinitions.get(i);
@@ -161,7 +161,7 @@ public final class OracleConnector extends AbstractDatabaseConnector {
             if (sourceField == null || StringUtil.isBlank(targetColumn)) {
                 continue;
             }
-            String col = database.buildWithQuotation(targetColumn);
+            String col = buildWithQuotation(targetColumn);
             String type = formatPhysicalType(sourceField);
             if (isUnsupportedOnlineModifyType(type)) {
                 continue;
@@ -212,14 +212,14 @@ public final class OracleConnector extends AbstractDatabaseConnector {
     }
 
     private String qualifyTable(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
-                                String tableName, Database database) {
+                                String tableName) {
         String schema = StringUtil.isNotBlank(task.getTargetSchema())
                 ? task.getTargetSchema()
                 : targetInstance.getCatalog();
         if (StringUtil.isBlank(schema)) {
-            return database.buildWithQuotation(tableName);
+            return buildWithQuotation(tableName);
         }
-        return database.buildWithQuotation(schema) + "." + database.buildWithQuotation(tableName);
+        return buildWithQuotation(schema) + "." + buildWithQuotation(tableName);
     }
 
     @Override

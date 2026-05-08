@@ -146,7 +146,7 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
     @Override
     public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
                                         String targetTableName, List<Field> sourceDefinitions,
-                                        List<String> targetColumnNames, Database database) {
+                                        List<String> targetColumnNames) {
         if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
             return StringUtil.EMPTY;
         }
@@ -155,7 +155,7 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
             return StringUtil.EMPTY;
         }
         //拼接数据库和表名 db.table
-        String qualifiedTable = qualifyTable(targetInstance, task, targetTableName, database);
+        String qualifiedTable = qualifyTable(targetInstance, task, targetTableName);
         List<String> clauses = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             Field sourceField = sourceDefinitions.get(i);
@@ -163,7 +163,7 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
             if (sourceField == null || StringUtil.isBlank(targetColumn)) {
                 continue;
             }
-            String col = database.buildWithQuotation(targetColumn);
+            String col = buildWithQuotation(targetColumn);
             String type = formatPhysicalType(sourceField);
             clauses.add(String.format(Locale.ROOT, "MODIFY COLUMN %s %s", col, type));
         }
@@ -174,14 +174,14 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
     }
 
     private String qualifyTable(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
-                                String tableName, Database database) {
+                                String tableName) {
         String dbName = StringUtil.isNotBlank(targetInstance.getCatalog())
                 ? targetInstance.getCatalog()
                 : task.getTargetDatabase();
         if (StringUtil.isBlank(dbName)) {
-            return database.buildWithQuotation(tableName);
+            return buildWithQuotation(tableName);
         }
-        return database.buildWithQuotation(dbName) + "." + database.buildWithQuotation(tableName);
+        return buildWithQuotation(dbName) + "." + buildWithQuotation(tableName);
     }
 
     @Override

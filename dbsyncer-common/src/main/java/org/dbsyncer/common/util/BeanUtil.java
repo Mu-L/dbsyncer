@@ -36,7 +36,7 @@ public abstract class BeanUtil {
         }
     }
 
-    public static Map beanToMap(Object object) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    public static Map beanToMap(Object object) throws  InvocationTargetException, IllegalAccessException {
         List<Field> field = getAllFields(object);
         Map map = new HashMap();
         for (Field fi : field) {

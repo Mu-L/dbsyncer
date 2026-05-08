@@ -104,12 +104,11 @@ public interface Database {
      * @param targetTableName   目标表名
      * @param sourceDefinitions 源端字段定义列表（期望形态）
      * @param targetColumnNames 目标列名列表（与 sourceDefinitions 一一对应）
-     * @param database          目标连接器 Database（引号规则）
      * @return 可执行批量 DDL
      */
     String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
                                  String targetTableName, List<Field> sourceDefinitions,
-                                 List<String> targetColumnNames, Database database);
+                                 List<String> targetColumnNames);
 
     /**
      * 健康检查
