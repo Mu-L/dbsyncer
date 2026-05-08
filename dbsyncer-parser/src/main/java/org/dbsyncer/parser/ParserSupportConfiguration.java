@@ -28,7 +28,6 @@ import java.util.Map;
  * @date 2024-01-25 23:43
  */
 @Configuration
-@ComponentScan(basePackages = "com.scxhtb.dbsyncer.platform")
 public class ParserSupportConfiguration {
 
     @Resource

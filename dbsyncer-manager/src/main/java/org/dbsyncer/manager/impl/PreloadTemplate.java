@@ -67,7 +67,6 @@ import java.util.stream.Stream;
  * @date 2019/9/16 23:59
  */
 @Component
-@Order(1)
 public final class PreloadTemplate implements ApplicationListener<ContextRefreshedEvent> {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());

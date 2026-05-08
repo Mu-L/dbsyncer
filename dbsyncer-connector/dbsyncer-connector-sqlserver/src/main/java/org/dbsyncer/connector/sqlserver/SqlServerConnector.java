@@ -147,7 +147,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     @Override
     public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
                                         String targetTableName, List<Field> sourceDefinitions,
-                                        List<String> targetColumnNames, Database database) {
+                                        List<String> targetColumnNames) {
         if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
             return StringUtil.EMPTY;
         }
@@ -155,7 +155,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
         if (size <= 0) {
             return StringUtil.EMPTY;
         }
-        String qualifiedTable = qualifyTable(task, targetTableName, database);
+        String qualifiedTable = qualifyTable(task, targetTableName);
         List<String> sqlList = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             Field sourceField = sourceDefinitions.get(i);
@@ -163,7 +163,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
             if (sourceField == null || StringUtil.isBlank(targetColumn)) {
                 continue;
             }
-            String col = database.buildWithQuotation(targetColumn);
+            String col = buildWithQuotation(targetColumn);
             String type = formatPhysicalType(sourceField);
             sqlList.add(String.format(Locale.ROOT, "ALTER TABLE %s ALTER COLUMN %s %s", qualifiedTable, col, type));
         }
@@ -199,9 +199,9 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     /**
      * 可选库前缀 {@code [db].[schema].[table]}；仅 schema + 表名亦可。
      */
-    private String qualifyTable(ValidateSyncTask task, String tableName, Database database) {
+    private String qualifyTable(ValidateSyncTask task, String tableName) {
         String schema = StringUtil.isNotBlank(task.getTargetSchema()) ? task.getTargetSchema() : "dbo";
-        String schemaTable = database.buildWithQuotation(schema) + "." + database.buildWithQuotation(tableName);
+        String schemaTable = buildWithQuotation(schema) + "." + buildWithQuotation(tableName);
         if (StringUtil.isBlank(task.getTargetDatabase())) {
             return schemaTable;
         }

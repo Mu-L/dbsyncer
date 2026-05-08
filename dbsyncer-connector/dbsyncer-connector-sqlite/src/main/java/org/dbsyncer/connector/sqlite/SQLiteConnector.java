@@ -148,7 +148,7 @@ public final class SQLiteConnector extends AbstractDatabaseConnector {
     }
 
     @Override
-    public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, List<Field> sourceDefinitions, List<String> targetColumnNames, Database database) {
+    public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task, String targetTableName, List<Field> sourceDefinitions, List<String> targetColumnNames) {
         throw new SQLiteException("sqlLite暂时不支持该功能");
     }
 

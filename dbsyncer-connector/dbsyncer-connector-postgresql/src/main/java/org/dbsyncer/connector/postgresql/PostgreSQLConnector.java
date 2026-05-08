@@ -136,7 +136,7 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
     @Override
     public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
                                         String targetTableName, List<Field> sourceDefinitions,
-                                        List<String> targetColumnNames, Database database) {
+                                        List<String> targetColumnNames) {
         if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
             return StringUtil.EMPTY;
         }
@@ -144,7 +144,7 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         if (size <= 0) {
             return StringUtil.EMPTY;
         }
-        String qualifiedTable = qualifyTable(task, targetTableName, database);
+        String qualifiedTable = qualifyTable(task, targetTableName);
         List<String> clauses = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             Field sourceField = sourceDefinitions.get(i);
@@ -152,7 +152,7 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
             if (sourceField == null || StringUtil.isBlank(targetColumn)) {
                 continue;
             }
-            String col = database.buildWithQuotation(targetColumn);
+            String col = buildWithQuotation(targetColumn);
             String type = formatPhysicalType(sourceField);
             String usingExpr = buildUsingExpr(col, type);
             clauses.add(String.format(Locale.ROOT, "ALTER COLUMN %s TYPE %s USING %s", col, type, usingExpr));
@@ -163,9 +163,9 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         return String.format(Locale.ROOT, "ALTER TABLE %s %s", qualifiedTable, StringUtil.join(clauses, ", "));
     }
 
-    private String qualifyTable(ValidateSyncTask task, String tableName, Database database) {
+    private String qualifyTable(ValidateSyncTask task, String tableName) {
         String schema = StringUtil.isNotBlank(task.getTargetSchema()) ? task.getTargetSchema() : "public";
-        return database.buildWithQuotation(schema) + "." + database.buildWithQuotation(tableName);
+        return buildWithQuotation(schema) + "." + buildWithQuotation(tableName);
     }
 
     @Override
