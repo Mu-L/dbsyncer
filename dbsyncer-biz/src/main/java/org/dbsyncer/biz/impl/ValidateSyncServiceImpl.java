@@ -301,6 +301,75 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
     }
 
     @Override
+    public Paging<Table> searchTables(Map<String, String> params) {
+        String id = params.get(ConfigConstant.CONFIG_MODEL_ID);
+        String type = params.get(ConfigConstant.CONFIG_MODEL_TYPE);
+        String searchKey = params.get("searchKey");
+        String tableNames = params.get("tableNames");
+
+        int pageNum = NumberUtil.toInt(params.get("pageNum"), 1);
+        int pageSize = Math.max(10, Math.min(200, NumberUtil.toInt(params.get("pageSize"), 50)));
+
+        // 是否过滤已配置的表（exclude=1 表示不过滤）
+        boolean excludeMapped = NumberUtil.toInt(params.get("exclude"), 0) != 1;
+
+        ValidateSyncTask task = taskService.get(id);
+        Assert.notNull(task, "task not found.");
+
+        boolean isSource = !"target".equals(type);
+        List<Table> tables = isSource ? task.getSourceTable() : task.getTargetTable();
+        tables = CollectionUtils.isEmpty(tables) ? Collections.emptyList() : tables;
+
+        // 已映射/已配置的表名
+        Set<String> mappedTableNames;
+        if (excludeMapped) {
+            mappedTableNames = tableGroupService.getTableGroupAll(id).stream()
+                    .map(g -> isSource ? g.getSourceTable() : g.getTargetTable())
+                    .filter(Objects::nonNull)
+                    .map(Table::getName)
+                    .filter(StringUtil::isNotBlank)
+                    .map(n -> n.toUpperCase(Locale.ROOT))
+                    .collect(Collectors.toSet());
+        } else {
+            mappedTableNames = Collections.emptySet();
+        }
+
+        // 精准匹配（tableNames: a|b|c）
+        Set<String> exactNames = new HashSet<>();
+        if (StringUtil.isNotBlank(tableNames)) {
+            String[] nameArray = StringUtil.split(tableNames, "\\|");
+            if (nameArray != null) {
+                Arrays.stream(nameArray)
+                        .filter(StringUtil::isNotBlank)
+                        .map(n -> n.toUpperCase(Locale.ROOT))
+                        .forEach(exactNames::add);
+            }
+        }
+
+        String key = StringUtil.trimToEmpty(searchKey).toUpperCase(Locale.ROOT);
+
+        List<Table> filtered = tables.stream()
+                .filter(Objects::nonNull)
+                .filter(t -> StringUtil.isNotBlank(t.getName()))
+                .filter(t -> mappedTableNames.isEmpty() || !mappedTableNames.contains(t.getName().toUpperCase(Locale.ROOT)))
+                .filter(t -> exactNames.isEmpty() || exactNames.contains(t.getName().toUpperCase(Locale.ROOT)))
+                .filter(t -> key.isEmpty() || t.getName().toUpperCase(Locale.ROOT).contains(key))
+                .sorted(Comparator.comparing(Table::getName))
+                .collect(Collectors.toList());
+
+        Paging<Table> paging = new Paging<>(pageNum, pageSize);
+        paging.setTotal(filtered.size());
+        int offset = (pageNum - 1) * pageSize;
+        if (offset >= 0 && offset < filtered.size()) {
+            paging.setData(filtered.stream()
+                    .skip(offset)
+                    .limit(pageSize)
+                    .collect(Collectors.toList()));
+        }
+        return paging;
+    }
+
+    @Override
     public Object result(String id) {
         return taskService.get(id);
     }

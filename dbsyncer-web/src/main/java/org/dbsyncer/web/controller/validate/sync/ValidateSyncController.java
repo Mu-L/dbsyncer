@@ -195,6 +195,21 @@ public class ValidateSyncController extends BaseController {
         }
     }
 
+    /**
+     * 分页搜索校验任务表（用于下拉框远程搜索）
+     */
+    @PostMapping("/searchTables")
+    @ResponseBody
+    public RestResult searchTables(HttpServletRequest request) {
+        try {
+            Map<String, String> params = getParams(request);
+            return RestResult.restSuccess(validateSyncService.searchTables(params));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
     @PostMapping(value = "/refreshFields")
     @ResponseBody
     public RestResult refreshFields(@RequestParam(value = "id") String id) {

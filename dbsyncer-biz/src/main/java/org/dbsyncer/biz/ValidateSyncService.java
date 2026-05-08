@@ -6,6 +6,7 @@ package org.dbsyncer.biz;
 import org.dbsyncer.biz.vo.ValidateSyncTaskVO;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.parser.model.TableGroup;
+import org.dbsyncer.sdk.model.Table;
 
 import java.util.List;
 import java.util.Map;
@@ -83,6 +84,14 @@ public interface ValidateSyncService {
      * @return
      */
     Paging<TableGroup> searchTableGroup(Map<String, String> params);
+
+    /**
+     * 分页搜索校验任务表（用于下拉框远程搜索）
+     *
+     * @param params
+     * @return
+     */
+    Paging<Table> searchTables(Map<String, String> params);
 
     /**
      * 获取结果
