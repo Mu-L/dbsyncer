@@ -247,19 +247,6 @@
             // 7. 设置下拉框选中项
             targetTableSelect.setValues(matched);
 
-            // 先把命中的目标表塞到下拉数据源中，避免目标下拉为空且无法再次触发加载
-            targetTableSelect.setData(targetData);
-            if (targetData != null && targetData.length > 0) {
-                const matched = (sourceNames || []).filter(function(name) {
-                    return targetData.some(function(item) {
-                        return item && item.value === name;
-                    });
-                });
-                targetTableSelect.setValues(matched);
-            } else {
-                targetTableSelect.setValues([]);
-            }
-
         });
     }
 
