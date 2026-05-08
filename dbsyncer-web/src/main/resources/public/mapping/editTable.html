@@ -237,12 +237,20 @@
             });
             targetTableSelect.setData(mergedData);
             // 6. 自动选中：从目标表里，匹配出与源表对应的项
-            const targetNames = mergedData.map(function(item) {
-                return item.value; // 提取所有目标表名
+            const targetNameMap = {}; // key=UPPERCASE_NAME, value=real_value
+            mergedData.forEach(function(item) {
+                if (item && item.value) {
+                    targetNameMap[String(item.value).toUpperCase()] = item.value;
+                }
             });
-            // 筛选出源表名在目标表中存在的（用于自动选中）
-            const matched = (sourceNames || []).filter(function(name) {
-                return targetNames.indexOf(name) > -1;
+            // 筛选出源表名在目标表中存在的（大小写不敏感），并回填目标真实值
+            const matched = (sourceNames || []).map(function(name) {
+                if (!name) {
+                    return null;
+                }
+                return targetNameMap[String(name).toUpperCase()] || null;
+            }).filter(function(name) {
+                return !!name;
             });
             // 7. 设置下拉框选中项
             targetTableSelect.setValues(matched);

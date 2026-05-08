@@ -151,11 +151,19 @@
             console.log(mergedData);
             targetTableSelect.setData(mergedData);
 
-            const targetNames = mergedData.map(function(item) {
-                return item.value;
+            const targetNameMap = {}; // key=UPPERCASE_NAME, value=real_value
+            mergedData.forEach(function(item) {
+                if (item && item.value) {
+                    targetNameMap[String(item.value).toUpperCase()] = item.value;
+                }
             });
-            const matched = (sourceNames || []).filter(function(name) {
-                return targetNames.indexOf(name) > -1;
+            const matched = (sourceNames || []).map(function(name) {
+                if (!name) {
+                    return null;
+                }
+                return targetNameMap[String(name).toUpperCase()] || null;
+            }).filter(function(name) {
+                return !!name;
             });
             targetTableSelect.setValues(matched);
         });
