@@ -150,6 +150,10 @@ public class Shard {
 
         List<Map> data = search(searcher, topDocs, option, pageNum, pageSize);
         paging.setData(data);
+        if (!option.isPageEnabled()) {
+            paging.setPageNum(1);
+            paging.setPageSize(Math.max(data.size(), 1));
+        }
         return paging;
     }
 
@@ -173,12 +177,18 @@ public class Shard {
     private List<Map> search(IndexSearcher searcher, TopDocs topDocs, Option option, int pageNum, int pageSize) throws IOException {
         ScoreDoc[] docs = topDocs.scoreDocs;
         int total = docs.length;
-        int begin = (pageNum - 1) * pageSize;
-        int end = pageNum * pageSize;
-
-        // 判断边界
-        begin = begin > total ? total : begin;
-        end = end > total ? total : end;
+        int begin;
+        int end;
+        if (!option.isPageEnabled()) {
+            begin = 0;
+            end = total;
+        } else {
+            begin = (pageNum - 1) * pageSize;
+            end = pageNum * pageSize;
+            // 判断边界
+            begin = Math.min(begin, total);
+            end = Math.min(end, total);
+        }
 
         List<Map> list = new ArrayList<>();
         Document doc = null;

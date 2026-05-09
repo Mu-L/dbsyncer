@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.connector.mysql.storage;
 
+import org.apache.commons.io.IOUtils;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
@@ -25,9 +26,6 @@ import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.storage.AbstractStorageService;
 import org.dbsyncer.sdk.util.DatabaseUtil;
-
-import org.apache.commons.io.IOUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -38,12 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -249,9 +242,11 @@ public class MySQLStorageService extends AbstractStorageService {
         } else {
             buildDefaultOrderBy(query, executor, sql);
         }
-        sql.append(DatabaseConstant.MYSQL_PAGE_SQL);
-        args.add((query.getPageNum() - 1) * query.getPageSize());
-        args.add(query.getPageSize());
+        if (query.isPageEnabled()) {
+            sql.append(DatabaseConstant.MYSQL_PAGE_SQL);
+            args.add((query.getPageNum() - 1) * query.getPageSize());
+            args.add(query.getPageSize());
+        }
         return sql.toString();
     }
 
@@ -423,8 +418,7 @@ public class MySQLStorageService extends AbstractStorageService {
         List<Field> dataFields = builder.getFields();
 
         // 任务
-        builder.build(ConfigConstant.CONFIG_MODEL_ID,ConfigConstant.CONFIG_MODEL_NAME,ConfigConstant.TASK_STATUS,ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.CONFIG_MODEL_JSON, ConfigConstant.CONFIG_MODEL_CREATE_TIME, ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
-
+        builder.build(ConfigConstant.CONFIG_MODEL_ID, ConfigConstant.CONFIG_MODEL_NAME, ConfigConstant.TASK_STATUS, ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.CONFIG_MODEL_JSON, ConfigConstant.CONFIG_MODEL_CREATE_TIME, ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
         List<Field> taskFields = builder.getFields();
 
         // 数据校验明细（列顺序与 dbsyncer_mysql_task_validata_sync_detail.sql 一致）
@@ -544,14 +538,14 @@ public class MySQLStorageService extends AbstractStorageService {
 
         public FieldBuilder() {
             fieldMap = Stream.of(new Field(ConfigConstant.CONFIG_MODEL_ID, "VARCHAR", Types.VARCHAR, true), new Field(ConfigConstant.CONFIG_MODEL_NAME, "VARCHAR", Types.VARCHAR), new Field(
-                            ConfigConstant.CONFIG_MODEL_TYPE, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.CONFIG_MODEL_CREATE_TIME, "BIGINT", Types.BIGINT), new Field(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, "BIGINT",
-                            Types.BIGINT), new Field(ConfigConstant.CONFIG_MODEL_JSON, "LONGVARCHAR", Types.LONGVARCHAR), new Field(ConfigConstant.DATA_SUCCESS, "INTEGER",
-                            Types.INTEGER), new Field(ConfigConstant.DATA_TABLE_GROUP_ID, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_TARGET_TABLE_NAME, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.DATA_EVENT, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_ERROR, "LONGVARCHAR",
-                            Types.LONGVARCHAR), new Field(ConfigConstant.BINLOG_DATA, "VARBINARY", Types.BLOB), new Field(ConfigConstant.TASK_ID, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.TASK_STATUS, "INTEGER", Types.INTEGER), new Field(ConfigConstant.TASK_SOURCE_TABLE_NAME, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.TASK_SOURCE_TOTAL, "BIGINT", Types.BIGINT), new Field(ConfigConstant.TASK_TARGET_TOTAL, "BIGINT", Types.BIGINT),
+                                    ConfigConstant.CONFIG_MODEL_TYPE, "VARCHAR",
+                                    Types.VARCHAR), new Field(ConfigConstant.CONFIG_MODEL_CREATE_TIME, "BIGINT", Types.BIGINT), new Field(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, "BIGINT",
+                                    Types.BIGINT), new Field(ConfigConstant.CONFIG_MODEL_JSON, "LONGVARCHAR", Types.LONGVARCHAR), new Field(ConfigConstant.DATA_SUCCESS, "INTEGER",
+                                    Types.INTEGER), new Field(ConfigConstant.DATA_TABLE_GROUP_ID, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_TARGET_TABLE_NAME, "VARCHAR",
+                                    Types.VARCHAR), new Field(ConfigConstant.DATA_EVENT, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_ERROR, "LONGVARCHAR",
+                                    Types.LONGVARCHAR), new Field(ConfigConstant.BINLOG_DATA, "VARBINARY", Types.BLOB), new Field(ConfigConstant.TASK_ID, "VARCHAR",
+                                    Types.VARCHAR), new Field(ConfigConstant.TASK_STATUS, "INTEGER", Types.INTEGER), new Field(ConfigConstant.TASK_SOURCE_TABLE_NAME, "VARCHAR",
+                                    Types.VARCHAR), new Field(ConfigConstant.TASK_SOURCE_TOTAL, "BIGINT", Types.BIGINT), new Field(ConfigConstant.TASK_TARGET_TOTAL, "BIGINT", Types.BIGINT),
                             new Field(ConfigConstant.TASK_DIFF_TOTAL, "BIGINT", Types.BIGINT), new Field(ConfigConstant.TASK_FIXED_TOTAL, "BIGINT", Types.BIGINT),
                             new Field(ConfigConstant.TASK_CONTENT, "LONGVARCHAR", Types.LONGVARCHAR))
                     .peek(field -> {

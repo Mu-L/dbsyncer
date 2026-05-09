@@ -25,7 +25,10 @@ public abstract class TimeType extends AbstractDataType<Time> {
     @Override
     protected Object convert(Object val, Field field) {
         if (val instanceof Time) {
-            return DateFormatUtil.timeToString((Time) val);
+            return val;
+        }
+        if (val instanceof String) {
+            return Time.valueOf(((String) val).trim());
         }
         return throwUnsupportedException(val, field);
     }

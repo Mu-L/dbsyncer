@@ -34,6 +34,11 @@ public class Option {
     private boolean queryTotal;
 
     /**
+     * 是否对命中结果做分页截取；为 false 时返回本次检索到的全部文档（仍受 Lucene {@link org.dbsyncer.storage.lucene.Shard} 单次命中上限约束）。
+     */
+    private boolean pageEnabled = true;
+
+    /**
      * 返回值转换器
      */
     private Map<String, FieldResolver> fieldResolverMap = new ConcurrentHashMap<>();
@@ -89,6 +94,14 @@ public class Option {
 
     public void setQueryTotal(boolean queryTotal) {
         this.queryTotal = queryTotal;
+    }
+
+    public boolean isPageEnabled() {
+        return pageEnabled;
+    }
+
+    public void setPageEnabled(boolean pageEnabled) {
+        this.pageEnabled = pageEnabled;
     }
 
     public Map<String, FieldResolver> getFieldResolverMap() {

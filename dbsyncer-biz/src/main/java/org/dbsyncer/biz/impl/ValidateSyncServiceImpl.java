@@ -388,9 +388,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         Assert.hasText(taskId, "taskId is required.");
         Query query = new Query(NumberUtil.toInt(params.get("pageNum"), 1), NumberUtil.toInt(params.get("pageSize"), 10));
         query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
-        query.addOrderBy(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, SortEnum.DESC);
         query.addFilter(ConfigConstant.TASK_ID, taskId);
         query.addExcludeSelectLabel(ConfigConstant.TASK_CONTENT);
+        query.addOrderBy(ConfigConstant.TASK_DIFF_TOTAL,SortEnum.DESC);
         return storageService.query(query);
     }
 

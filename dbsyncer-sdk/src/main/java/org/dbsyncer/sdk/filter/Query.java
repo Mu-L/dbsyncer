@@ -42,6 +42,11 @@ public class Query {
     private int pageSize = 20;
 
     /**
+     * 是否启用分页；为 false 默认使用分页
+     */
+    private boolean pageEnabled = true;
+
+    /**
      * 修改时间和创建默认降序返回
      */
     private SortEnum sort = SortEnum.DESC;
@@ -90,7 +95,6 @@ public class Query {
         booleanFilter.add(new LongFilter(name, filterEnum, value));
     }
 
-
     public StorageEnum getType() {
         return type;
     }
@@ -117,6 +121,14 @@ public class Query {
 
     public boolean isQueryTotal() {
         return queryTotal;
+    }
+
+    public boolean isPageEnabled() {
+        return pageEnabled;
+    }
+
+    public void setPageEnabled(boolean pageEnabled) {
+        this.pageEnabled = pageEnabled;
     }
 
     public void setQueryTotal(boolean queryTotal) {

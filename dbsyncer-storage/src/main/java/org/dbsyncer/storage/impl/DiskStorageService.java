@@ -73,6 +73,7 @@ public class DiskStorageService extends AbstractStorageService {
             Sort sort = new Sort(new SortField(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, SortField.Type.LONG, desc), new SortField(ConfigConstant.CONFIG_MODEL_CREATE_TIME, SortField.Type.LONG, desc));
             Option option = new Option();
             option.setQueryTotal(query.isQueryTotal());
+            option.setPageEnabled(query.isPageEnabled());
             option.setFieldResolverMap(query.getFieldResolverMap());
             // 设置参数
             BooleanFilter baseQuery = query.getBooleanFilter();

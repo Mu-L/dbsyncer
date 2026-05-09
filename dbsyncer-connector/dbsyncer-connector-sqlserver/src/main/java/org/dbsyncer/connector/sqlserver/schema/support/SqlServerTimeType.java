@@ -45,9 +45,6 @@ public final class SqlServerTimeType extends TimeType {
 
     @Override
     protected Object convert(Object val, Field field) {
-        if (val instanceof Time) {
-            return val;
-        }
-        return throwUnsupportedException(val, field);
+        return super.convert(val,field);
     }
 }
