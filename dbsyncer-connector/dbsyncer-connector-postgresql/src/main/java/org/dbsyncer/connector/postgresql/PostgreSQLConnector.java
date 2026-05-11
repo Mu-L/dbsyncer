@@ -140,13 +140,10 @@ public final class PostgreSQLConnector extends AbstractDatabaseConnector {
         if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
             return StringUtil.EMPTY;
         }
-        int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
-        if (size <= 0) {
-            return StringUtil.EMPTY;
-        }
+        int loopSize = Math.min(sourceDefinitions.size(), targetColumnNames.size());
         String qualifiedTable = qualifyTable(task, targetTableName);
-        List<String> clauses = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
+        List<String> clauses = new ArrayList<>(loopSize);
+        for (int i = 0; i < loopSize; i++) {
             Field sourceField = sourceDefinitions.get(i);
             String targetColumn = targetColumnNames.get(i);
             if (sourceField == null || StringUtil.isBlank(targetColumn)) {

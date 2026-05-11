@@ -150,16 +150,14 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
         if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
             return StringUtil.EMPTY;
         }
-        int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
-        if (size <= 0) {
-            return StringUtil.EMPTY;
-        }
+        int loopSize = Math.min(sourceDefinitions.size(), targetColumnNames.size());
         //拼接数据库和表名 db.table
         String qualifiedTable = qualifyTable(targetInstance, task, targetTableName);
-        List<String> clauses = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
+        List<String> clauses = new ArrayList<>(loopSize);
+        for (int i = 0; i < loopSize; i++) {
             Field sourceField = sourceDefinitions.get(i);
             String targetColumn = targetColumnNames.get(i);
+            // 非法数据直接跳过
             if (sourceField == null || StringUtil.isBlank(targetColumn)) {
                 continue;
             }
@@ -298,24 +296,7 @@ public final class MySQLConnector extends AbstractDatabaseConnector {
             int len = sourceDefinition.getColumnSize() > 0 ? sourceDefinition.getColumnSize() : 255;
             return String.format(Locale.ROOT, "VARCHAR(%d)", len);
         }
-        // 小数秒精度仅允许 0–6，勿用 JDBC columnSize 当作 TIME/TIMESTAMP 宽度
-        if ("TIME".equals(t) || t.startsWith("TIME(")) {
-            return mysqlTemporalFragment("TIME", sourceDefinition);
-        }
-        if ("TIMESTAMP".equals(t) || t.startsWith("TIMESTAMP(")) {
-            return mysqlTemporalFragment("TIMESTAMP", sourceDefinition);
-        }
-        if ("DATETIME".equals(t) || t.startsWith("DATETIME(")) {
-            return mysqlTemporalFragment("DATETIME", sourceDefinition);
-        }
         return super.formatPhysicalType(sourceDefinition);
     }
 
-    /**
-     * MySQL
-     */
-    private static String mysqlTemporalFragment(String baseName, Field sourceDefinition) {
-        int fsp = Math.max(0, Math.min(6, sourceDefinition.getRatio()));
-        return fsp > 0 ? String.format(Locale.ROOT, "%s(%d)", baseName, fsp) : baseName;
-    }
 }

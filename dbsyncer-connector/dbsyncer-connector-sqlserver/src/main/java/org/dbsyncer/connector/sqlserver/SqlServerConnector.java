@@ -152,9 +152,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
             return StringUtil.EMPTY;
         }
         int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
-        if (size <= 0) {
-            return StringUtil.EMPTY;
-        }
+
         String qualifiedTable = qualifyTable(task, targetTableName);
         List<String> sqlList = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
@@ -182,14 +180,14 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
         int size = Math.max(0, sourceDefinition.getColumnSize());
 
         if (t.contains("VARBINARY")) {
-            if (size > 8000 || size == 2147483647) {
+            if (size > 8000) {
                 return "VARBINARY(MAX)";
             }
         }
 
         if (t.contains("VARCHAR")) {
             // 长度 > 8000 → 必须用 MAX
-            if (size > 8000 || size == 2147483647) {
+            if (size > 8000) {
                 return "VARCHAR(MAX)";
             }
         }

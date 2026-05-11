@@ -10,10 +10,7 @@ import org.dbsyncer.sdk.filter.impl.IntFilter;
 import org.dbsyncer.sdk.filter.impl.LongFilter;
 import org.dbsyncer.sdk.filter.impl.StringFilter;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -59,12 +56,12 @@ public class Query {
     /**
      * SELECT 白名单 查询包含白名单的字段
      */
-    private List<String> includeSelectLabels;
+    private Set<String> includeSelectLabels;
 
     /**
      * SELECT 黑名单：排除掉黑名单的字段
      */
-    private final List<String> excludeSelectLabels = new ArrayList<>();
+    private final Set<String> excludeSelectLabels = new HashSet<>();
 
     /**
      * 返回值转换器，限Disk使用
@@ -207,7 +204,7 @@ public class Query {
             this.includeSelectLabels = null;
             return;
         }
-        this.includeSelectLabels = new ArrayList<>(labels.size());
+        this.includeSelectLabels = new HashSet<>(labels.size());
         for (String label : labels) {
             if (label != null && !label.isEmpty()) {
                 this.includeSelectLabels.add(label);
@@ -218,8 +215,8 @@ public class Query {
         }
     }
 
-    public List<String> getIncludeSelectLabels() {
-        return includeSelectLabels == null ? Collections.emptyList() : Collections.unmodifiableList(includeSelectLabels);
+    public Set<String> getIncludeSelectLabels() {
+        return includeSelectLabels;
     }
 
     /**
@@ -234,8 +231,8 @@ public class Query {
         excludeSelectLabels.add(labelName);
     }
 
-    public List<String> getExcludeSelectLabels() {
-        return Collections.unmodifiableList(excludeSelectLabels);
+    public Set<String> getExcludeSelectLabels() {
+        return excludeSelectLabels;
     }
 
     public Map<String, FieldResolver> getFieldResolverMap() {

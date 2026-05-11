@@ -149,13 +149,11 @@ public final class OracleConnector extends AbstractDatabaseConnector {
         if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
             return StringUtil.EMPTY;
         }
-        int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
-        if (size <= 0) {
-            return StringUtil.EMPTY;
-        }
+        int loopSize = Math.min(sourceDefinitions.size(), targetColumnNames.size());
+
         String qualifiedTable = qualifyTable(targetInstance, task, targetTableName);
-        List<String> alterStatements = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
+        List<String> alterStatements = new ArrayList<>(loopSize);
+        for (int i = 0; i < loopSize; i++) {
             Field sourceField = sourceDefinitions.get(i);
             String targetColumn = targetColumnNames.get(i);
             if (sourceField == null || StringUtil.isBlank(targetColumn)) {

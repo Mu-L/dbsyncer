@@ -64,19 +64,18 @@ public abstract class PickerUtil {
 
     /**
      * 订正校验做字段映射
-     * @param group
      */
     private static void mapFieldsForSyncValidate(TableGroup group) {
         final List<FieldMapping> fieldMapping = group.getFieldMapping();
         List<Filter> filter = group.getFilter();
         if (!CollectionUtils.isEmpty(filter)) {
             Map<String, Field> fields = convert2Map(group.getSourceTable().getColumn());
-            filter.forEach(f->addFieldMapping(fieldMapping, f.getName(), fields, true));
+            filter.forEach(f -> addFieldMapping(fieldMapping, f.getName(), fields, true));
         }
         List<Convert> convert = group.getConvert();
         if (!CollectionUtils.isEmpty(convert)) {
             Map<String, Field> fields = convert2Map(group.getTargetTable().getColumn());
-            convert.forEach(c->addFieldMapping(fieldMapping, c.getName(), fields, false));
+            convert.forEach(c -> addFieldMapping(fieldMapping, c.getName(), fields, false));
         }
     }
 

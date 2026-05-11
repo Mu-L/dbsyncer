@@ -257,38 +257,35 @@ public class MySQLStorageService extends AbstractStorageService {
         if (!query.hasSelectProjection()) {
             return executor.getQuery();
         }
-        Set<String> include = null;
-        if (query.hasIncludeSelectLabels()) {
-            include = new HashSet<>(query.getIncludeSelectLabels());
-        }
-        Set<String> exclude = null;
-        if (include == null && !query.getExcludeSelectLabels().isEmpty()) {
-            exclude = new HashSet<>(query.getExcludeSelectLabels());
-        }
+        Set<String> includeLabels = query.getIncludeSelectLabels();
+        Set<String> excludeLabels = query.getExcludeSelectLabels();
+
         Database database = connector;
-        List<String> fs = new ArrayList<>();
-        for (Field f : executor.getFields()) {
-            String label = f.getLabelName();
-            if (include != null) {
-                if (!include.contains(label)) {
-                    continue;
-                }
-            } else if (exclude != null && exclude.contains(label)) {
+        List<String> selectedFields = new ArrayList<>();
+        for (Field field : executor.getFields()) {
+            String label = field.getLabelName();
+            // include 过滤：不在包含列表则跳过
+            if (!CollectionUtils.isEmpty(includeLabels) && !includeLabels.contains(label)) {
                 continue;
             }
+            // exclude 过滤：在排除列表则跳过
+            if (!CollectionUtils.isEmpty(excludeLabels) && excludeLabels.contains(label)) {
+                continue;
+            }
+            // 构建字段SQL
             if (StringUtil.isNotBlank(label)) {
-                fs.add(database.buildWithQuotation(f.getName()) + " AS " + label);
-                continue;
+                selectedFields.add(database.buildWithQuotation(field.getName()) + " AS " + label);
+            } else if (!database.buildCustom(selectedFields, field)) {
+                selectedFields.add(database.buildWithQuotation(field.getName()));
             }
-            if (database.buildCustom(fs, f)) {
-                continue;
-            }
-            fs.add(database.buildWithQuotation(f.getName()));
         }
-        if (fs.isEmpty()) {
+        if (selectedFields.isEmpty()) {
             return executor.getQuery();
         }
-        return String.format("SELECT %s FROM %s", StringUtil.join(fs, StringUtil.COMMA), database.buildWithQuotation(executor.getTable()));
+        // 拼接最终SQL
+        return String.format("SELECT %s FROM %s",
+                StringUtil.join(selectedFields, StringUtil.COMMA),
+                database.buildWithQuotation(executor.getTable()));
     }
 
     private void buildCustomOrderBy(Query query, StringBuilder sql) {

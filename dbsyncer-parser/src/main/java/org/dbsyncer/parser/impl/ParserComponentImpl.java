@@ -27,10 +27,7 @@ import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.DefaultConnectorServiceContext;
 import org.dbsyncer.sdk.connector.FullPluginContext;
 import org.dbsyncer.sdk.constant.ConnectorConstant;
-import org.dbsyncer.sdk.model.ConnectorConfig;
-import org.dbsyncer.sdk.model.MetaInfo;
-import org.dbsyncer.sdk.model.Table;
-import org.dbsyncer.sdk.model.ValidateSyncTask;
+import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.plugin.PluginContext;
 import org.dbsyncer.sdk.spi.ConnectorService;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
@@ -103,7 +100,7 @@ public class ParserComponentImpl implements ParserComponent {
      * 根据驱动/任务 id 与表组构建连接器命令
      */
     private Map<String, String> buildConnectorCommand(String mappingId, String sourceConnectorId, String targetConnectorId,
-            String sourceSchema, String targetSchema, boolean forceUpdate, TableGroup tableGroup) {
+                                                      String sourceSchema, String targetSchema, boolean forceUpdate, TableGroup tableGroup) {
         ConnectorConfig sConnConfig = getConnectorConfig(sourceConnectorId);
         ConnectorConfig tConnConfig = getConnectorConfig(targetConnectorId);
         Table sourceTable = tableGroup.getSourceTable();
@@ -111,8 +108,9 @@ public class ParserComponentImpl implements ParserComponent {
         Table sTable = sourceTable.clone().setColumn(new ArrayList<>());
         Table tTable = targetTable.clone().setColumn(new ArrayList<>());
         List<FieldMapping> fieldMapping = tableGroup.getFieldMapping();
+        List<Filter> targetFilter = getTargetFilter(tableGroup, fieldMapping);
         if (!CollectionUtils.isEmpty(fieldMapping)) {
-            fieldMapping.forEach(m-> {
+            fieldMapping.forEach(m -> {
                 if (null != m.getSource()) {
                     sTable.getColumn().add(m.getSource());
                 }
@@ -126,7 +124,7 @@ public class ParserComponentImpl implements ParserComponent {
         ConnectorInstance sourceInstance = connectorFactory.connect(sourceInstanceId);
         ConnectorInstance targetInstance = connectorFactory.connect(targetInstanceId);
         final CommandConfig sourceConfig = new CommandConfig(sConnConfig.getConnectorType(), sourceSchema, sTable, sourceInstance, tableGroup.getFilter());
-        final CommandConfig targetConfig = new CommandConfig(tConnConfig.getConnectorType(), targetSchema, tTable, targetInstance, tableGroup.getFilter());
+        final CommandConfig targetConfig = new CommandConfig(tConnConfig.getConnectorType(), targetSchema, tTable, targetInstance, targetFilter);
         targetConfig.setForceUpdate(forceUpdate);
         return connectorFactory.getCommand(sourceConfig, targetConfig);
     }
@@ -176,7 +174,7 @@ public class ParserComponentImpl implements ParserComponent {
         // 0、插件前置处理
         pluginFactory.process(context, ProcessEnum.BEFORE);
 
-        for (;;) {
+        for (; ; ) {
             if (!task.isRunning()) {
                 logger.warn("任务被中止:{}", metaId);
                 break;
@@ -253,7 +251,7 @@ public class ParserComponentImpl implements ParserComponent {
                 PluginContext tmpContext = (PluginContext) context.clone();
                 tmpContext.setTargetList(context.getTargetList().stream().skip(offset).limit(batchSize).collect(Collectors.toList()));
                 offset += batchSize;
-                executor.execute(()-> {
+                executor.execute(() -> {
                     try {
                         Result w = connectorFactory.writer(tmpContext);
                         result.addSuccessData(w.getSuccessData());
@@ -303,8 +301,8 @@ public class ParserComponentImpl implements ParserComponent {
      * 游标分页时使用与构建 QUERY_CURSOR 一致的主键列表；非游标或未配置时使用表主键。
      * 避免 findTablePrimaryKeys(sourceTable) 返回表上全部主键（含未参与游标的 id）导致 getLastCursors 多取游标值、参数与 SQL 占位符不一致。
      *
-     * @param command    执行命令（含 CURSOR_PK_NAMES 时表示游标实际使用的主键）
-     * @param sourceTable 源表
+     * @param command      执行命令（含 CURSOR_PK_NAMES 时表示游标实际使用的主键）
+     * @param sourceTable  源表
      * @param enableCursor 是否支持游标
      * @return 用于 getLastCursors 的主键名列表
      */
@@ -327,6 +325,32 @@ public class ParserComponentImpl implements ParserComponent {
      */
     private ConnectorConfig getConnectorConfig(String connectorId) {
         return profileComponent.getConnector(connectorId).getConfig();
+    }
+
+    /**
+     * 根据源条件 组装目标表条件
+     */
+    private static List<Filter> getTargetFilter(TableGroup tableGroup, List<FieldMapping> fieldMapping) {
+        List<Filter> filter = tableGroup.getFilter();
+        List<Filter> targetFilter = new ArrayList<>();
+        if (!CollectionUtils.isEmpty(filter)) {
+            filter.forEach(f -> {
+                Field matchedField = fieldMapping.stream()
+                        .filter(m -> m.getSource().getName().equals(f.getName()))
+                        .map(FieldMapping::getTarget)                 // 获取目标字段
+                        .findFirst()
+                        .orElse(null);
+                if (matchedField != null) {
+                    Filter tmp = new Filter();
+                    tmp.setName(matchedField.getName());
+                    tmp.setFilter(f.getFilter());
+                    tmp.setValue(f.getValue());
+                    tmp.setOperation(f.getOperation());
+                    targetFilter.add(tmp);
+                }
+            });
+        }
+        return targetFilter;
     }
 
 }

@@ -96,14 +96,6 @@ public abstract class DateFormatUtil {
         return date.toLocalDate().format(YYYY_MM_DD);
     }
 
-    public static String timeToString(Time time) {
-        if (time == null) {
-            return null;
-        }
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern(PATTERN_HH_MM_SS);
-        return time.toLocalTime().format(fmt);
-    }
-
     public static String dateToString(java.util.Date date) {
         return date.toInstant().atZone(zoneId).toLocalDateTime().format(YYYY_MM_DD_HH_MM_SS);
     }
