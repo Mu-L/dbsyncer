@@ -219,27 +219,8 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
                     + String.format(SET_TABLE_IDENTITY_OFF, commandConfig.getSchema(), tableName);
             targetCommand.put(ConnectorConstant.OPERTION_INSERT, insert);
         }
-        targetCommand.put(ConnectorConstant.OPERTION_QUERY_TARGET, buildQueryInSql(commandConfig));
-        targetCommand.put(ConnectorConstant.TARGET_QUERY_COUNT, buildTargetCountSql(commandConfig));
-
         return targetCommand;
     }
-
-    /**
-     * 构建主键回查SQL模板（WHERE 条件由上层运行时替换）。
-     */
-    private String buildQueryInSql(CommandConfig commandConfig) {
-        String schema = StringUtil.isNotBlank(commandConfig.getSchema()) ? buildWithQuotation(commandConfig.getSchema()) + "." : StringUtil.EMPTY;
-        String tableName = buildWithQuotation(commandConfig.getTable().getName());
-        return "SELECT * FROM " + schema + tableName;
-    }
-
-    private String buildTargetCountSql(CommandConfig commandConfig) {
-        String schema = StringUtil.isNotBlank(commandConfig.getSchema()) ? buildWithQuotation(commandConfig.getSchema()) + "." : StringUtil.EMPTY;
-        String tableName = buildWithQuotation(commandConfig.getTable().getName());
-        return "SELECT COUNT(*) FROM " + schema + tableName;
-    }
-
     @Override
     public String buildUpsertSql(DatabaseConnectorInstance connectorInstance, SqlBuilderConfig config) {
         Database database = config.getDatabase();

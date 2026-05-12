@@ -491,7 +491,8 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
 
         //查询目标总数SQL
         final String queryFilterSql = getQueryFilterSql(commandConfig);
-        map.put(SqlBuilderEnum.TARGET_QUERY_COUNT.getName(), getQueryCountSql(new SqlBuilderConfig(this, schema, tableName, primaryKeys, column, queryFilterSql)));
+        SqlBuilderConfig buildSqlConfig = new SqlBuilderConfig(this, schema, tableName, primaryKeys, column, queryFilterSql);
+        map.put(SqlBuilderEnum.TARGET_QUERY_COUNT.getName(), getQueryTargetCountSql(buildSqlConfig));
         return map;
     }
 

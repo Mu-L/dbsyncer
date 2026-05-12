@@ -127,6 +127,13 @@ public interface Database {
     }
 
     /**
+     * 查询目标总数表
+     */
+    default String getQueryTargetCountSql(SqlBuilderConfig sqlConfig) {
+        return SqlBuilderEnum.TARGET_QUERY_COUNT.getSqlBuilder().buildSql(sqlConfig);
+    }
+
+    /**
      * 生成upsert
      */
     String buildUpsertSql(DatabaseConnectorInstance connectorInstance, SqlBuilderConfig config);
