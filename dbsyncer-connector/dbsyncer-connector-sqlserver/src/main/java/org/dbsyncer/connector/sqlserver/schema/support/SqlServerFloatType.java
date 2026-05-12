@@ -46,9 +46,6 @@ public final class SqlServerFloatType extends FloatType {
 
     @Override
     protected  Object convert(Object val, Field field){
-        if (val instanceof Number) {
-            return ((Number) val).toString();
-        }
-        return throwUnsupportedException(val, field);
+       return super.convert(val,field);
     }
 }

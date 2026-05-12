@@ -232,6 +232,12 @@ public class DiskStorageService extends AbstractStorageService {
                 case CONFIG:
                     docs.add(DocumentUtil.convertConfig2Doc(r));
                     break;
+                case TASK:
+                    docs.add(DocumentUtil.convertTask2Doc(r));
+                    break;
+                case VALIDATE_SYNC_DETAIL:
+                    docs.add(DocumentUtil.convertValidateSyncDetail2Doc(r));
+                    break;
                 default:
                     break;
             }

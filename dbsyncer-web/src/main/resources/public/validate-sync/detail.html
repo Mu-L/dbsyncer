@@ -311,7 +311,7 @@
                     '<td>' + getSourceTargetCounts(row) + '</td>' +
                     '<td>' + getDiffTotal(row) + '</td>' +
                     '<td>' + getCorrectedTotal(row) + '</td>' +
-                    '<td>' + formatDate(row.createTime || '') + '</td>' +
+                    '<td>' + formatDate(row.updateTime || '') + '</td>' +
                     '<td><button type="button" class="table-action-btn view diff-detail-btn" title="查看详情" data-detail-id="' + String(detailId).replace(/"/g, '') + '"><i class="fa fa-eye"></i></button></td>' +
                     '</tr>';
             },

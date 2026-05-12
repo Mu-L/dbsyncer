@@ -20,7 +20,8 @@ function escapeHtml(text) {
 }
 
 function formatDate(time) {
-    const date = new Date(time);
+    let timestamp = Number(time);
+    const date = new Date(timestamp);
     const YY = date.getFullYear() + '-';
     const MM = (date.getMonth() + 1 < 10 ? '0' + (date.getMonth() + 1) : date.getMonth() + 1) + '-';
     const DD = (date.getDate() < 10 ? '0' + (date.getDate()) : date.getDate());

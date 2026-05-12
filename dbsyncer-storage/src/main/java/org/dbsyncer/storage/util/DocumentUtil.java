@@ -133,4 +133,106 @@ public abstract class DocumentUtil {
         return doc;
     }
 
+    public static Document convertTask2Doc(Map params) {
+        Assert.notNull(params, "Params can not be null.");
+        Document doc = new Document();
+        String id = getString(params, ConfigConstant.CONFIG_MODEL_ID);
+        String name = getString(params, ConfigConstant.CONFIG_MODEL_NAME);
+        Integer status = getInteger(params, ConfigConstant.TASK_STATUS);
+        String type = getString(params, ConfigConstant.CONFIG_MODEL_TYPE);
+        String json = getString(params, ConfigConstant.CONFIG_MODEL_JSON);
+        Long createTime = getLong(params, ConfigConstant.CONFIG_MODEL_CREATE_TIME);
+        Long updateTime = getLong(params, ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
+
+        doc.add(new StringField(ConfigConstant.CONFIG_MODEL_ID, id, Field.Store.YES));
+        doc.add(new TextField(ConfigConstant.CONFIG_MODEL_NAME, name, Field.Store.YES));
+        doc.add(new IntPoint(ConfigConstant.TASK_STATUS, status));
+        doc.add(new StoredField(ConfigConstant.TASK_STATUS, status));
+        doc.add(new StringField(ConfigConstant.CONFIG_MODEL_TYPE, type, Field.Store.YES));
+        doc.add(new StoredField(ConfigConstant.CONFIG_MODEL_JSON, json));
+        doc.add(new LongPoint(ConfigConstant.CONFIG_MODEL_CREATE_TIME, createTime));
+        doc.add(new StoredField(ConfigConstant.CONFIG_MODEL_CREATE_TIME, createTime));
+        doc.add(new NumericDocValuesField(ConfigConstant.CONFIG_MODEL_CREATE_TIME, createTime));
+        doc.add(new LongPoint(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, updateTime));
+        doc.add(new StoredField(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, updateTime));
+        doc.add(new NumericDocValuesField(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, updateTime));
+        return doc;
+    }
+
+    public static Document convertValidateSyncDetail2Doc(Map params) {
+        Assert.notNull(params, "Params can not be null.");
+        Document doc = new Document();
+        String id = getString(params, ConfigConstant.CONFIG_MODEL_ID);
+        String taskId = getString(params, ConfigConstant.TASK_ID);
+        String type = getString(params, ConfigConstant.CONFIG_MODEL_TYPE);
+        String sourceTableName = getString(params, ConfigConstant.TASK_SOURCE_TABLE_NAME);
+        String targetTableName = getString(params, ConfigConstant.DATA_TARGET_TABLE_NAME);
+        Long sourceTotal = getLong(params, ConfigConstant.TASK_SOURCE_TOTAL);
+        Long targetTotal = getLong(params, ConfigConstant.TASK_TARGET_TOTAL);
+        Long diffTotal = getLong(params, ConfigConstant.TASK_DIFF_TOTAL);
+        Long fixedTotal = getLong(params, ConfigConstant.TASK_FIXED_TOTAL);
+        String content = getString(params, ConfigConstant.TASK_CONTENT);
+        Long createTime = getLong(params, ConfigConstant.CONFIG_MODEL_CREATE_TIME);
+        Long updateTime = getLong(params, ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
+
+        doc.add(new StringField(ConfigConstant.CONFIG_MODEL_ID, id, Field.Store.YES));
+        doc.add(new StringField(ConfigConstant.TASK_ID, taskId, Field.Store.YES));
+        doc.add(new StringField(ConfigConstant.CONFIG_MODEL_TYPE, type, Field.Store.YES));
+        doc.add(new StringField(ConfigConstant.TASK_SOURCE_TABLE_NAME, sourceTableName, Field.Store.YES));
+        doc.add(new StringField(ConfigConstant.DATA_TARGET_TABLE_NAME, targetTableName, Field.Store.YES));
+        doc.add(new LongPoint(ConfigConstant.TASK_SOURCE_TOTAL, sourceTotal));
+        doc.add(new StoredField(ConfigConstant.TASK_SOURCE_TOTAL, sourceTotal));
+        doc.add(new NumericDocValuesField(ConfigConstant.TASK_SOURCE_TOTAL, sourceTotal));
+        doc.add(new LongPoint(ConfigConstant.TASK_TARGET_TOTAL, targetTotal));
+        doc.add(new StoredField(ConfigConstant.TASK_TARGET_TOTAL, targetTotal));
+        doc.add(new NumericDocValuesField(ConfigConstant.TASK_TARGET_TOTAL, targetTotal));
+        doc.add(new LongPoint(ConfigConstant.TASK_DIFF_TOTAL, diffTotal));
+        doc.add(new StoredField(ConfigConstant.TASK_DIFF_TOTAL, diffTotal));
+        doc.add(new NumericDocValuesField(ConfigConstant.TASK_DIFF_TOTAL, diffTotal));
+        doc.add(new LongPoint(ConfigConstant.TASK_FIXED_TOTAL, fixedTotal));
+        doc.add(new StoredField(ConfigConstant.TASK_FIXED_TOTAL, fixedTotal));
+        doc.add(new NumericDocValuesField(ConfigConstant.TASK_FIXED_TOTAL, fixedTotal));
+        doc.add(new TextField(ConfigConstant.TASK_CONTENT, content, Field.Store.YES));
+        doc.add(new LongPoint(ConfigConstant.CONFIG_MODEL_CREATE_TIME, createTime));
+        doc.add(new StoredField(ConfigConstant.CONFIG_MODEL_CREATE_TIME, createTime));
+        doc.add(new NumericDocValuesField(ConfigConstant.CONFIG_MODEL_CREATE_TIME, createTime));
+        doc.add(new LongPoint(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, updateTime));
+        doc.add(new StoredField(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, updateTime));
+        doc.add(new NumericDocValuesField(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, updateTime));
+        return doc;
+    }
+
+    private static String getString(Map params, String key) {
+        Object value = params.get(key);
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private static Long getLong(Map params, String key) {
+        Object value = params.get(key);
+        if (value instanceof Long) {
+            return (Long) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value == null) {
+            return 0L;
+        }
+        return Long.parseLong(String.valueOf(value));
+    }
+
+    private static Integer getInteger(Map params, String key) {
+        Object value = params.get(key);
+        if (value instanceof Integer) {
+            return (Integer) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value == null) {
+            return 0;
+        }
+        return Integer.parseInt(String.valueOf(value));
+    }
+
 }
