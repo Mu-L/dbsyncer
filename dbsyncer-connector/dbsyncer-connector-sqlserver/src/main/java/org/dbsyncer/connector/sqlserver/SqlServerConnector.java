@@ -24,6 +24,7 @@ import org.dbsyncer.sdk.listener.DatabaseQuartzListener;
 import org.dbsyncer.sdk.listener.Listener;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.model.PageSql;
+import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.plugin.ReaderContext;
 import org.dbsyncer.sdk.schema.SchemaResolver;
 import org.dbsyncer.sdk.util.PrimaryKeyUtil;
@@ -32,6 +33,7 @@ import java.sql.Connection;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -42,7 +44,6 @@ import java.util.Map;
  * @Date 2022-05-22 22:56
  */
 public final class SqlServerConnector extends AbstractDatabaseConnector {
-
     private final String QUERY_DATABASE = "SELECT name FROM SYS.DATABASES WHERE database_id > 4 order by name";
     private final String QUERY_SCHEMA = "SELECT name FROM sys.schemas WHERE name NOT IN ('sys','INFORMATION_SCHEMA','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter') order by name";
     private final String QUERY_TABLE_IDENTITY = "select is_identity from sys.columns where object_id = object_id('%s') and is_identity > 0";
@@ -76,12 +77,12 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
 
     @Override
     public List<String> getDatabases(DatabaseConnectorInstance connectorInstance) {
-        return connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(QUERY_DATABASE, String.class));
+        return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_DATABASE, String.class));
     }
 
     @Override
     public List<String> getSchemas(DatabaseConnectorInstance connectorInstance, String catalog) {
-        return connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(QUERY_SCHEMA, String.class));
+        return connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(QUERY_SCHEMA, String.class));
     }
 
     @Override
@@ -144,12 +145,74 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     }
 
     @Override
+    public String buildModifyColumnsSql(DatabaseConnectorInstance targetInstance, ValidateSyncTask task,
+                                        String targetTableName, List<Field> sourceDefinitions,
+                                        List<String> targetColumnNames) {
+        if (CollectionUtils.isEmpty(sourceDefinitions) || CollectionUtils.isEmpty(targetColumnNames)) {
+            return StringUtil.EMPTY;
+        }
+        int size = Math.min(sourceDefinitions.size(), targetColumnNames.size());
+
+        String qualifiedTable = qualifyTable(task, targetTableName);
+        List<String> sqlList = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            Field sourceField = sourceDefinitions.get(i);
+            String targetColumn = targetColumnNames.get(i);
+            if (sourceField == null || StringUtil.isBlank(targetColumn)) {
+                continue;
+            }
+            String col = buildWithQuotation(targetColumn);
+            String type = formatPhysicalType(sourceField);
+            sqlList.add(String.format(Locale.ROOT, "ALTER TABLE %s ALTER COLUMN %s %s", qualifiedTable, col, type));
+        }
+        if (sqlList.isEmpty()) {
+            return StringUtil.EMPTY;
+        }
+        return StringUtil.join(sqlList, ";");
+    }
+
+    @Override
+    protected String formatPhysicalType(Field sourceDefinition) {
+        if (sourceDefinition == null || StringUtil.isBlank(sourceDefinition.getTypeName())) {
+            return super.formatPhysicalType(sourceDefinition);
+        }
+        String t = sourceDefinition.getTypeName().trim().toUpperCase(Locale.ROOT);
+        int size = Math.max(0, sourceDefinition.getColumnSize());
+
+        if (t.contains("VARBINARY")) {
+            if (size > 8000) {
+                return "VARBINARY(MAX)";
+            }
+        }
+
+        if (t.contains("VARCHAR")) {
+            // 长度 > 8000 → 必须用 MAX
+            if (size > 8000) {
+                return "VARCHAR(MAX)";
+            }
+        }
+        return super.formatPhysicalType(sourceDefinition);
+    }
+
+    /**
+     * 可选库前缀 {@code [db].[schema].[table]}；仅 schema + 表名亦可。
+     */
+    private String qualifyTable(ValidateSyncTask task, String tableName) {
+        String schema = StringUtil.isNotBlank(task.getTargetSchema()) ? task.getTargetSchema() : "dbo";
+        String schemaTable = buildWithQuotation(schema) + "." + buildWithQuotation(tableName);
+        if (StringUtil.isBlank(task.getTargetDatabase())) {
+            return schemaTable;
+        }
+        return "[" + task.getTargetDatabase() + "]." + schemaTable;
+    }
+
+    @Override
     public Map<String, String> getTargetCommand(CommandConfig commandConfig) {
         Map<String, String> targetCommand = super.getTargetCommand(commandConfig);
         String tableName = commandConfig.getTable().getName();
         // 判断表是否包含标识自增列
         DatabaseConnectorInstance db = (DatabaseConnectorInstance) commandConfig.getConnectorInstance();
-        List<Integer> result = db.execute(databaseTemplate->databaseTemplate.queryForList(String.format(QUERY_TABLE_IDENTITY, tableName), Integer.class));
+        List<Integer> result = db.execute(databaseTemplate -> databaseTemplate.queryForList(String.format(QUERY_TABLE_IDENTITY, tableName), Integer.class));
         // 允许显式插入标识列的值
         if (!CollectionUtils.isEmpty(result)) {
             String insert = String.format(SET_TABLE_IDENTITY_ON, commandConfig.getSchema(), tableName) + targetCommand.get(ConnectorConstant.OPERTION_INSERT)
@@ -158,7 +221,6 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
         }
         return targetCommand;
     }
-
     @Override
     public String buildUpsertSql(DatabaseConnectorInstance connectorInstance, SqlBuilderConfig config) {
         Database database = config.getDatabase();
@@ -169,7 +231,7 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
         List<String> updateSets = new ArrayList<>();
         List<String> pkFieldNames = new ArrayList<>();
 
-        config.getFields().forEach(f-> {
+        config.getFields().forEach(f -> {
             String fieldName = database.buildWithQuotation(f.getName());
             fs.add(fieldName);
             sfs.add("s." + fieldName);
@@ -214,15 +276,15 @@ public final class SqlServerConnector extends AbstractDatabaseConnector {
     @Override
     public Object getPosition(DatabaseConnectorInstance connectorInstance) {
         String sql = "SELECT * from cdc.lsn_time_mapping order by tran_begin_time desc";
-        List<Map<String, Object>> result = connectorInstance.execute(databaseTemplate->databaseTemplate.queryForList(sql));
+        List<Map<String, Object>> result = connectorInstance.execute(databaseTemplate -> databaseTemplate.queryForList(sql));
         if (!CollectionUtils.isEmpty(result)) {
             List<Object> list = new ArrayList<>();
-            result.forEach(r-> {
-                r.computeIfPresent("start_lsn", (k, lsn)->new Lsn((byte[]) lsn).toString());
-                r.computeIfPresent("tran_begin_lsn", (k, lsn)->new Lsn((byte[]) lsn).toString());
-                r.computeIfPresent("tran_id", (k, lsn)->new Lsn((byte[]) lsn).toString());
-                r.computeIfPresent("tran_begin_time", (k, tranBeginTime)->DateFormatUtil.timestampToString((Timestamp) tranBeginTime));
-                r.computeIfPresent("tran_end_time", (k, tranEndTime)->DateFormatUtil.timestampToString((Timestamp) tranEndTime));
+            result.forEach(r -> {
+                r.computeIfPresent("start_lsn", (k, lsn) -> new Lsn((byte[]) lsn).toString());
+                r.computeIfPresent("tran_begin_lsn", (k, lsn) -> new Lsn((byte[]) lsn).toString());
+                r.computeIfPresent("tran_id", (k, lsn) -> new Lsn((byte[]) lsn).toString());
+                r.computeIfPresent("tran_begin_time", (k, tranBeginTime) -> DateFormatUtil.timestampToString((Timestamp) tranBeginTime));
+                r.computeIfPresent("tran_end_time", (k, tranEndTime) -> DateFormatUtil.timestampToString((Timestamp) tranEndTime));
                 list.add(r);
             });
             return list;
