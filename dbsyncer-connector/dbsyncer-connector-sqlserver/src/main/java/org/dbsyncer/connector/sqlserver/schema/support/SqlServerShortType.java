@@ -17,10 +17,8 @@ import java.util.stream.Collectors;
  */
 public final class SqlServerShortType extends ShortType {
 
-
     private enum TypeEnum {
-        SMALLINT("smallint"),
-        SHORT("SHORT");
+        SMALLINT("smallint");
 
         private final String value;
 
@@ -32,6 +30,7 @@ public final class SqlServerShortType extends ShortType {
             return value;
         }
     }
+
     @Override
     protected Short merge(Object val, Field field) {
         return throwUnsupportedException(val, field);

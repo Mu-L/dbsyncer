@@ -64,7 +64,7 @@
             data: options.data || [],
             defaultValue: defaultValue,
             disabled: options.disabled || false,
-            maxRenderOptions: options.maxRenderOptions || 3000,
+            maxRenderOptions: options.maxRenderOptions || 1000,
             remoteSearch: options.remoteSearch || false,
             pageSize: options.pageSize || 100,
             keywordDebounceMs: options.keywordDebounceMs || 300,

@@ -80,18 +80,18 @@ public class Shard {
     }
 
     public void insertBatch(List<Document> docs) {
-        execute(docs, ()->indexWriter.addDocuments(docs));
+        execute(docs, () -> indexWriter.addDocuments(docs));
     }
 
     public void update(Term term, Document doc) {
         if (null != term) {
-            execute(doc, ()->indexWriter.updateDocument(term, doc));
+            execute(doc, () -> indexWriter.updateDocument(term, doc));
         }
     }
 
     public void deleteBatch(Term... terms) {
         if (null != terms) {
-            execute(terms, ()->indexWriter.deleteDocuments(terms));
+            execute(terms, () -> indexWriter.deleteDocuments(terms));
         }
     }
 
@@ -150,10 +150,6 @@ public class Shard {
 
         List<Map> data = search(searcher, topDocs, option, pageNum, pageSize);
         paging.setData(data);
-        if (!option.isPageEnabled()) {
-            paging.setPageNum(1);
-            paging.setPageSize(Math.max(data.size(), 1));
-        }
         return paging;
     }
 
@@ -177,18 +173,12 @@ public class Shard {
     private List<Map> search(IndexSearcher searcher, TopDocs topDocs, Option option, int pageNum, int pageSize) throws IOException {
         ScoreDoc[] docs = topDocs.scoreDocs;
         int total = docs.length;
-        int begin;
-        int end;
-        if (!option.isPageEnabled()) {
-            begin = 0;
-            end = total;
-        } else {
-            begin = (pageNum - 1) * pageSize;
-            end = pageNum * pageSize;
-            // 判断边界
-            begin = Math.min(begin, total);
-            end = Math.min(end, total);
-        }
+        int begin = (pageNum - 1) * pageSize;
+        int end = pageNum * pageSize;
+
+        // 判断边界
+        begin = begin > total ? total : begin;
+        end = end > total ? total : end;
 
         List<Map> list = new ArrayList<>();
         Document doc = null;
@@ -202,11 +192,14 @@ public class Shard {
             r = new ConcurrentHashMap();
             while (iterator.hasNext()) {
                 f = iterator.next();
+                final String key = f.name();
+                if (!option.includeField(key)) {
+                    continue;
+                }
 
                 // 开启高亮
                 if (option.isEnableHighLightSearch()) {
                     try {
-                        final String key = f.name();
                         if (option.getHighLightKeys().contains(key)) {
                             String content = doc.get(key);
                             TokenStream tokenStream = analyzer.tokenStream("", content);

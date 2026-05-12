@@ -10,12 +10,11 @@ import org.dbsyncer.sdk.plugin.CustomContext;
  * @version 1.0.0s
  * @date 2022/6/30 16:04
  */
-public final class FullPluginContext extends AbstractPluginContext  implements CustomContext {
-
+public final class FullPluginContext extends AbstractPluginContext implements CustomContext {
 
     private BooleanFilter booleanFilter = new BooleanFilter();
 
-    private boolean targetConnector =false;
+    private boolean targetConnector = false;
 
     @Override
     public ModelEnum getModelEnum() {

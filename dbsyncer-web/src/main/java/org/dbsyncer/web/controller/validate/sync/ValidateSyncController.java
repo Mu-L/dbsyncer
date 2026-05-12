@@ -290,9 +290,9 @@ public class ValidateSyncController extends BaseController {
     /**
      * 按明细 ID 查询单条校验结果（含完整 CONTENT），供详情弹窗使用。
      */
-    @PostMapping("/searchResultDetail")
+    @PostMapping("/getResultDetail")
     @ResponseBody
-    public RestResult searchResultDetail(@RequestParam("id") String id) {
+    public RestResult getResultDetail(@RequestParam("id") String id) {
         try {
             Object detail = validateSyncService.getValidateResultDetail(id);
             if (detail == null) {

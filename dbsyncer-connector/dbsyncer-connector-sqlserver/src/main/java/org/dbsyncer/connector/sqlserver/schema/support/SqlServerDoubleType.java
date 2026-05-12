@@ -7,7 +7,6 @@ import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.support.DoubleType;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -40,5 +39,12 @@ public final class SqlServerDoubleType extends DoubleType {
     @Override
     public Set<String> getSupportedTypeName() {
         return Arrays.stream(SqlServerDoubleType.TypeEnum.values()).map(SqlServerDoubleType.TypeEnum::getValue).collect(Collectors.toSet());
+    }
+    @Override
+    protected  Object convert(Object val, Field field){
+        if (val instanceof Number) {
+            return ((Number) val).toString();
+        }
+        return throwUnsupportedException(val, field);
     }
 }

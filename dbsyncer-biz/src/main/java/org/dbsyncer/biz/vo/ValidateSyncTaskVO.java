@@ -6,6 +6,8 @@ package org.dbsyncer.biz.vo;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.sdk.model.ValidateSyncTask;
 
+import java.math.BigDecimal;
+
 public final class ValidateSyncTaskVO extends ValidateSyncTask {
     // 连接器
     private final Connector sourceConnector;
@@ -13,7 +15,7 @@ public final class ValidateSyncTaskVO extends ValidateSyncTask {
     //错误数
     private long errorCount;
     //当前进度
-    private Integer progress;
+    private BigDecimal progress;
 
     public ValidateSyncTaskVO(Connector sourceConnector, Connector targetConnector) {
         this.sourceConnector = sourceConnector;
@@ -28,19 +30,19 @@ public final class ValidateSyncTaskVO extends ValidateSyncTask {
         return targetConnector;
     }
 
-    public Integer getProgress() {
-        return progress;
-    }
-
-    public void setProgress(Integer progress) {
-        this.progress = progress;
-    }
-
     public long getErrorCount() {
         return errorCount;
     }
 
     public void setErrorCount(long errorCount) {
         this.errorCount = errorCount;
+    }
+
+    public BigDecimal getProgress() {
+        return progress;
+    }
+
+    public void setProgress(BigDecimal progress) {
+        this.progress = progress;
     }
 }

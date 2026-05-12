@@ -269,7 +269,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
     }
 
     private void collectConnectorOffline() {
-        // 防止首次启动，状态还未刷新
+        // 防止首次启动，连接器状态还未刷新，默认还是离线状态，防止误判
         if (LocalDateTime.now().minusMinutes(1).isAfter(delayTime)) {
             // 采集连接离线状态
             ConnectorOfflineContent content = new ConnectorOfflineContent();

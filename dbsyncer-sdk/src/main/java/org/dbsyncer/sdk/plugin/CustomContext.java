@@ -12,7 +12,6 @@ import org.dbsyncer.sdk.filter.BooleanFilter;
  */
 public interface CustomContext {
 
-
     /**
      * 是否是目标连接器
      */
@@ -22,6 +21,5 @@ public interface CustomContext {
      * 获取筛选条件
      */
     BooleanFilter getFilter();
-
 
 }

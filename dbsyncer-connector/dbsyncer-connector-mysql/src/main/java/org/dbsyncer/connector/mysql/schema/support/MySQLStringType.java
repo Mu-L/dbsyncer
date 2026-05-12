@@ -52,6 +52,7 @@ public final class MySQLStringType extends StringType {
             case GEOMETRY:
                 return deserializeGeometry((byte[]) val);
             case ENUM:
+            case SET:
                 return String.valueOf(val);
             default:
                 break;

@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.sdk.schema.support;
 
-import org.dbsyncer.common.util.DateFormatUtil;
 import org.dbsyncer.sdk.enums.DataTypeEnum;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.schema.AbstractDataType;

@@ -234,7 +234,7 @@
          */
         window.showDiffDetail = function (detailId) {
             if (!detailId) return;
-            doPoster('/validate-sync/searchResultDetail', {id: detailId}, function (res) {
+            doPoster('/validate-sync/getResultDetail', {id: detailId}, function (res) {
                 if (!res.success) {
                     bootGrowl(res.message || '加载失败', 'danger');
                     return;
@@ -242,7 +242,7 @@
                 var row = res.data;
                 var content = parseContent(row.content);
                 if (!content) {
-                    bootGrowl('无法解析校验结果', 'warning');
+                    bootGrowl('无差异数据！', 'warning');
                     return;
                 }
                 var type = row.type || '';

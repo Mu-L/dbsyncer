@@ -7,7 +7,7 @@ import org.dbsyncer.common.enums.CommonTaskTriggerEnum;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ValidateSyncTask extends CommonTask {
     // 数据源连接器ID
@@ -99,7 +99,7 @@ public class ValidateSyncTask extends CommonTask {
     private Integer processed = 0;
 
     //表执行快照
-    private final ConcurrentSkipListMap<Integer, ValidateTableSnapshot> tableSnapshots = new ConcurrentSkipListMap<>();
+    private final ConcurrentHashMap<Integer, ValidateTableSnapshot> tableSnapshots = new ConcurrentHashMap<>();
 
     public String getSourceConnectorId() {
         return sourceConnectorId;
@@ -277,7 +277,7 @@ public class ValidateSyncTask extends CommonTask {
         this.processed = processed;
     }
 
-    public ConcurrentSkipListMap<Integer, ValidateTableSnapshot> getTableSnapshots() {
+    public ConcurrentHashMap<Integer, ValidateTableSnapshot> getTableSnapshots() {
         return tableSnapshots;
     }
 

@@ -39,13 +39,13 @@ import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.spi.TaskService;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -53,8 +53,6 @@ import java.util.stream.Stream;
 
 @Service
 public class ValidateSyncServiceImpl implements ValidateSyncService {
-
-    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
     private SnowflakeIdWorker snowflakeIdWorker;
@@ -165,7 +163,6 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
     /**
      * 匹配相似表
      *
-     * @param validateSyncTask
      */
     private void matchSimilarTableGroups(ValidateSyncTask validateSyncTask) {
         List<Table> sourceTables = validateSyncTask.getSourceTable();
@@ -389,8 +386,11 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         Query query = new Query(NumberUtil.toInt(params.get("pageNum"), 1), NumberUtil.toInt(params.get("pageSize"), 10));
         query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
         query.addFilter(ConfigConstant.TASK_ID, taskId);
-        query.addExcludeSelectLabel(ConfigConstant.TASK_CONTENT);
-        query.addOrderBy(ConfigConstant.TASK_DIFF_TOTAL,SortEnum.DESC);
+
+        Set<String> selectFiled = getTaskDetailSelect();
+
+        query.setSelectFlied(selectFiled);
+        query.addOrderBy(ConfigConstant.TASK_DIFF_TOTAL, SortEnum.DESC);
         return storageService.query(query);
     }
 
@@ -620,18 +620,21 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
      * @param totalSize 表总数
      * @return 百分比（0~100）
      */
-    private Integer calculateProgressPercent(ValidateSyncTask task, int totalSize) {
+    private BigDecimal calculateProgressPercent(ValidateSyncTask task, int totalSize) {
 
         if (task.getProcessed() == null) {
             return null;
         }
         if (task.getProcessed() != null && task.getProcessed() == 1) {
-            return 100;
+            return new BigDecimal("100.00");
         }
         if (task.getTableSnapshots().isEmpty()) {
-            return 0;
+            return BigDecimal.ZERO;
         }
-        int minIndex = task.getTableSnapshots().firstKey();
+        int minIndex = task.getTableSnapshots().keySet().stream()
+                .min(Comparator.naturalOrder())  // 自然排序，取最小
+                .orElse(0);
+
         long doneCount = task.getTableSnapshots().values().stream()
                 .filter(snapshot -> snapshot != null && snapshot.getStatus() == 1)
                 .count();
@@ -639,7 +642,10 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         if (completed > totalSize) {
             completed = totalSize;
         }
-        return (int) ((completed * 100) / totalSize);
+        // 公式：completed * 100 / totalSize 保留2位小数
+        return BigDecimal.valueOf(completed)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(totalSize), 2, RoundingMode.HALF_UP);
     }
 
     private void resetTaskSnapshot(ValidateSyncTask task) {
@@ -654,5 +660,21 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         synchronized (LOCK) {
             Assert.isTrue(!taskService.isRunning(taskId), "任务正在执行, 请先停止.");
         }
+    }
+
+    private static Set<String> getTaskDetailSelect() {
+        Set<String> selectFiled = new HashSet<>();
+        selectFiled.add(ConfigConstant.TASK_ID);
+        selectFiled.add(ConfigConstant.CONFIG_MODEL_ID);
+        selectFiled.add(ConfigConstant.TASK_SOURCE_TABLE_NAME);
+        selectFiled.add(ConfigConstant.DATA_TARGET_TABLE_NAME);
+        selectFiled.add(ConfigConstant.TASK_SOURCE_TOTAL);
+        selectFiled.add(ConfigConstant.TASK_TARGET_TOTAL);
+        selectFiled.add(ConfigConstant.TASK_DIFF_TOTAL);
+        selectFiled.add(ConfigConstant.TASK_FIXED_TOTAL);
+        selectFiled.add(ConfigConstant.CONFIG_MODEL_TYPE);
+        selectFiled.add(ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
+        selectFiled.add(ConfigConstant.CONFIG_MODEL_CREATE_TIME);
+        return selectFiled;
     }
 }

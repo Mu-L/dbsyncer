@@ -19,10 +19,9 @@ import java.util.Map;
  */
 public class DefaultMetaContext implements MetaContext, CustomContext {
 
-
     private BooleanFilter booleanFilter = new BooleanFilter();
 
-    private boolean targetConnector =false;
+    private boolean targetConnector = false;
 
     private Table sourceTable;
     private Map<String, String> command;

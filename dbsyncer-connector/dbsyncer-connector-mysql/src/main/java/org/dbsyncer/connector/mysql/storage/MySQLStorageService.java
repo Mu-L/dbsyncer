@@ -242,11 +242,9 @@ public class MySQLStorageService extends AbstractStorageService {
         } else {
             buildDefaultOrderBy(query, executor, sql);
         }
-        if (query.isPageEnabled()) {
-            sql.append(DatabaseConstant.MYSQL_PAGE_SQL);
-            args.add((query.getPageNum() - 1) * query.getPageSize());
-            args.add(query.getPageSize());
-        }
+        sql.append(DatabaseConstant.MYSQL_PAGE_SQL);
+        args.add((query.getPageNum() - 1) * query.getPageSize());
+        args.add(query.getPageSize());
         return sql.toString();
     }
 
@@ -254,25 +252,20 @@ public class MySQLStorageService extends AbstractStorageService {
      * 可自定义 select 字段查询结果
      */
     private String buildSelectFromSql(Query query, Executor executor) {
-        if (!query.hasSelectProjection()) {
+        if (!query.hasSelectField()) {
             return executor.getQuery();
         }
-        Set<String> includeLabels = query.getIncludeSelectLabels();
-        Set<String> excludeLabels = query.getExcludeSelectLabels();
+        Set<String> includeLabels = query.getSelectFlied();
 
         Database database = connector;
         List<String> selectedFields = new ArrayList<>();
         for (Field field : executor.getFields()) {
             String label = field.getLabelName();
-            // include 过滤：不在包含列表则跳过
+
             if (!CollectionUtils.isEmpty(includeLabels) && !includeLabels.contains(label)) {
                 continue;
             }
-            // exclude 过滤：在排除列表则跳过
-            if (!CollectionUtils.isEmpty(excludeLabels) && excludeLabels.contains(label)) {
-                continue;
-            }
-            // 构建字段SQL
+            // 自定义查询字段
             if (StringUtil.isNotBlank(label)) {
                 selectedFields.add(database.buildWithQuotation(field.getName()) + " AS " + label);
             } else if (!database.buildCustom(selectedFields, field)) {

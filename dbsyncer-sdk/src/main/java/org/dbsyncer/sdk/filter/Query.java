@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.sdk.filter;
 
+import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.SortEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;
@@ -10,7 +11,10 @@ import org.dbsyncer.sdk.filter.impl.IntFilter;
 import org.dbsyncer.sdk.filter.impl.LongFilter;
 import org.dbsyncer.sdk.filter.impl.StringFilter;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -39,11 +43,6 @@ public class Query {
     private int pageSize = 20;
 
     /**
-     * 是否启用分页；为 false 默认使用分页
-     */
-    private boolean pageEnabled = true;
-
-    /**
      * 修改时间和创建默认降序返回
      */
     private SortEnum sort = SortEnum.DESC;
@@ -51,17 +50,12 @@ public class Query {
     /**
      * 自定义排序字段列表，非空时优先使用，为空时走默认排序逻辑
      */
-    private List<OrderBy> orderByList = new ArrayList<>();
+    private final List<OrderBy> orderByList = new ArrayList<>();
 
     /**
      * SELECT 白名单 查询包含白名单的字段
      */
-    private Set<String> includeSelectLabels;
-
-    /**
-     * SELECT 黑名单：排除掉黑名单的字段
-     */
-    private final Set<String> excludeSelectLabels = new HashSet<>();
+    private Set<String> selectFlied;
 
     /**
      * 返回值转换器，限Disk使用
@@ -120,14 +114,6 @@ public class Query {
         return queryTotal;
     }
 
-    public boolean isPageEnabled() {
-        return pageEnabled;
-    }
-
-    public void setPageEnabled(boolean pageEnabled) {
-        this.pageEnabled = pageEnabled;
-    }
-
     public void setQueryTotal(boolean queryTotal) {
         this.queryTotal = queryTotal;
     }
@@ -180,59 +166,22 @@ public class Query {
     }
 
     public boolean hasCustomOrderBy() {
-        return !orderByList.isEmpty();
+        return !CollectionUtils.isEmpty(orderByList);
     }
 
     /**
      * 是否对当前查询使用自定义 SELECT 列（白名单或黑名单）。
      */
-    public boolean hasSelectProjection() {
-        return hasIncludeSelectLabels() || !excludeSelectLabels.isEmpty();
+    public boolean hasSelectField() {
+        return !CollectionUtils.isEmpty(selectFlied);
     }
 
-    public boolean hasIncludeSelectLabels() {
-        return includeSelectLabels != null && !includeSelectLabels.isEmpty();
+    public void setSelectFlied(Set<String> selectFlied) {
+        this.selectFlied = selectFlied;
     }
 
-    /**
-     * 仅查询指定 label 对应的列；与 {@link #addExcludeSelectLabel} 同时配置时以本列表为准。
-     *
-     * @param labels 字段 label，驼峰形式，如 {@code id}、{@code content}
-     */
-    public void setIncludeSelectLabels(List<String> labels) {
-        if (labels == null || labels.isEmpty()) {
-            this.includeSelectLabels = null;
-            return;
-        }
-        this.includeSelectLabels = new HashSet<>(labels.size());
-        for (String label : labels) {
-            if (label != null && !label.isEmpty()) {
-                this.includeSelectLabels.add(label);
-            }
-        }
-        if (this.includeSelectLabels.isEmpty()) {
-            this.includeSelectLabels = null;
-        }
-    }
-
-    public Set<String> getIncludeSelectLabels() {
-        return includeSelectLabels;
-    }
-
-    /**
-     * 从默认全列 SELECT 中排除指定 label（如大字段 {@code content}）。
-     *
-     * @param labelName 字段 label，驼峰形式
-     */
-    public void addExcludeSelectLabel(String labelName) {
-        if (labelName == null || labelName.isEmpty()) {
-            return;
-        }
-        excludeSelectLabels.add(labelName);
-    }
-
-    public Set<String> getExcludeSelectLabels() {
-        return excludeSelectLabels;
+    public Set<String> getSelectFlied() {
+        return selectFlied;
     }
 
     public Map<String, FieldResolver> getFieldResolverMap() {
