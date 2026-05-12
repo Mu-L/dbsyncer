@@ -1,18 +1,8 @@
 package org.dbsyncer.storage.util;
 
-import org.apache.lucene.document.BinaryDocValuesField;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.IntPoint;
-import org.apache.lucene.document.LongPoint;
-import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
-import org.dbsyncer.sdk.constant.ConfigConstant;
-
+import org.apache.lucene.document.*;
 import org.apache.lucene.util.BytesRef;
-
+import org.dbsyncer.sdk.constant.ConfigConstant;
 import org.springframework.util.Assert;
 
 import java.util.Map;
@@ -189,6 +179,7 @@ public abstract class DocumentUtil {
         doc.add(new LongPoint(ConfigConstant.TASK_DIFF_TOTAL, diffTotal));
         doc.add(new StoredField(ConfigConstant.TASK_DIFF_TOTAL, diffTotal));
         doc.add(new NumericDocValuesField(ConfigConstant.TASK_DIFF_TOTAL, diffTotal));
+
         doc.add(new LongPoint(ConfigConstant.TASK_FIXED_TOTAL, fixedTotal));
         doc.add(new StoredField(ConfigConstant.TASK_FIXED_TOTAL, fixedTotal));
         doc.add(new NumericDocValuesField(ConfigConstant.TASK_FIXED_TOTAL, fixedTotal));
@@ -209,28 +200,22 @@ public abstract class DocumentUtil {
 
     private static Long getLong(Map params, String key) {
         Object value = params.get(key);
-        if (value instanceof Long) {
-            return (Long) value;
+        if (value == null) {
+            return 0L;
         }
         if (value instanceof Number) {
             return ((Number) value).longValue();
-        }
-        if (value == null) {
-            return 0L;
         }
         return Long.parseLong(String.valueOf(value));
     }
 
     private static Integer getInteger(Map params, String key) {
         Object value = params.get(key);
-        if (value instanceof Integer) {
-            return (Integer) value;
+        if (value == null) {
+            return 0;
         }
         if (value instanceof Number) {
             return ((Number) value).intValue();
-        }
-        if (value == null) {
-            return 0;
         }
         return Integer.parseInt(String.valueOf(value));
     }

@@ -518,10 +518,11 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
      */
     private long countTaskDetail(String taskId) {
         Query query = new Query(1, 1);
-        query.setQueryTotal(true);
         query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
         query.addFilter(ConfigConstant.TASK_ID, taskId);
         query.addFilter(ConfigConstant.TASK_DIFF_TOTAL, FilterEnum.GT, 0);
+        query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
+        query.setQueryTotal(true);
         Paging paging = storageService.query(query);
         return paging.getTotal();
     }
