@@ -114,6 +114,12 @@ public interface ValidateSyncService {
      */
     Object getValidateResultDetail(String id);
 
+    /**
+     * 一键订正指定明细中的全部未订正差异项（仅行数据类型）。
+     *
+     */
+    void correctResultDetail(String id);
+
     String addTableGroup(Map<String, String> params);
 
     String editTableGroup(Map<String, String> params);

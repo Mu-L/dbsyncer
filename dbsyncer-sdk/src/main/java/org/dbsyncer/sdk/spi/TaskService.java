@@ -5,6 +5,7 @@ package org.dbsyncer.sdk.spi;
 
 import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.model.Result;
 import org.dbsyncer.sdk.model.CommonTask;
 
 import java.util.List;
@@ -74,4 +75,10 @@ public interface TaskService<T extends CommonTask> {
      */
     boolean isRunning(String taskId);
 
+    /**
+     * 订正
+     *
+     * @return
+     */
+    Result correct(String taskDetailId);
 }

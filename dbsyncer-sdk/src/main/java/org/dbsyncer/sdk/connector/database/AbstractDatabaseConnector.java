@@ -272,17 +272,23 @@ public abstract class AbstractDatabaseConnector extends AbstractConnector implem
         // 1、获取查询SQL
         boolean supportedCursor = context.isSupportedCursor() && context.getCursors() != null && context.getCursors().length > 0;
         String queryKey = supportedCursor ? ConnectorConstant.OPERTION_QUERY_CURSOR : ConnectorConstant.OPERTION_QUERY;
-        String querySql;
-        if (context instanceof FullPluginContext && ((FullPluginContext) context).isTargetConnector()) {
+
+        FullPluginContext fullPluginContext = context instanceof FullPluginContext ? (FullPluginContext) context : null;
+        boolean isTargetConnector = fullPluginContext != null && fullPluginContext.isTargetConnector();
+        if (isTargetConnector) {
+            //目标查询
             queryKey = ConnectorConstant.OPERTION_QUERY_TARGET;
-            querySql = context.getCommand().get(queryKey);
-            Assert.hasText(querySql, "查询语句不能为空.");
-            BooleanFilter filter = ((FullPluginContext) context).getFilter();
+        }
+        String querySql = context.getCommand().get(queryKey);
+        Assert.hasText(querySql, "查询语句不能为空.");
+
+        if (fullPluginContext != null) {
+            BooleanFilter filter = fullPluginContext.getFilter();
             String condition = buildQueryCondition(filter, context.getArgs());
             querySql = buildTargetReaderSql(querySql, condition);
-        } else {
-            querySql = context.getCommand().get(queryKey);
-            Assert.hasText(querySql, "查询语句不能为空.");
+        }
+
+        if (!isTargetConnector) {
             // 2、设置参数
             Collections.addAll(context.getArgs(), supportedCursor ? getPageCursorArgs(context) : getPageArgs(context));
         }
