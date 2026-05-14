@@ -4,6 +4,28 @@
 
 <!-- 校验结果详情 -->
 <div class="form-container">
+    <style>
+        .diff-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .diff-table .diff-msg-cell {
+            max-height: 180px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.5;
+        }
+
+        .diff-table .diff-source-table-cell {
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+    </style>
+
     <div class="card-header">
         <h3 class="card-title text-center">校验结果详情</h3>
     </div>
@@ -44,12 +66,13 @@
             </thead>
             <tbody id="detail-result-table"></tbody>
         </table>
+        <div class="blank-block"></div>
     </div>
 </div>
 
 <!-- 差异详情弹窗 -->
 <div id="diffDetailOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:var(--z-modal-backdrop, 1040);">
-    <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:8px; width:800px; max-height:80vh; display:flex; flex-direction:column; z-index:var(--z-modal, 1050);">
+    <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:8px; width:min(1100px, 92vw); max-height:80vh; display:flex; flex-direction:column; z-index:var(--z-modal, 1050);">
         <div class="card-header flex items-center justify-between" style="padding:16px 20px;">
             <h3 class="card-title" style="margin:0;"><i class="fa fa-list-alt mr-2"></i>差异详情</h3>
             <button class="table-action-btn" id="closeDiffModal"><i class="fa fa-times"></i></button>
@@ -65,12 +88,15 @@
                 </div>
             </div>
             <!-- 差异数据表格 -->
-            <table class="table">
+            <table class="table diff-table">
                 <thead id="diffTableHead"></thead>
                 <tbody id="diffTableBody"></tbody>
             </table>
         </div>
         <div style="padding:12px 20px; border-top:1px solid var(--border-color, #e5e7eb); text-align:right;">
+            <button class="btn btn-primary mr-2" id="oneClickCorrectBtn" style="display:none;">
+                <i class="fa fa-magic"></i> 一键订正
+            </button>
             <button class="btn btn-outline" id="closeDiffModalBtn"><i class="fa fa-times"></i> 关闭</button>
         </div>
     </div>
@@ -156,6 +182,21 @@
             }
         }
 
+        /**
+         * 判断差异项是否已被订正。
+         * @param {Object} diffItem 差异项
+         * @returns {boolean}
+         */
+        function isDiffItemFixed(diffItem) {
+            if (!diffItem) {
+                return false;
+            }
+            return diffItem.fixed === true || diffItem.fixed === 1 || diffItem.corrected === true || diffItem.corrected === 1;
+        }
+
+        var currentDiffDetailId = '';
+        var currentDiffType = '';
+
         // 获取差异总数（优先独立列 diffTotal，兼容旧 content）
         function getDiffTotal(row) {
             if (row.diffTotal !== undefined && row.diffTotal !== null && row.diffTotal !== '') {
@@ -211,7 +252,7 @@
          */
         window.showDiffDetail = function (detailId) {
             if (!detailId) return;
-            doPoster('/validate-sync/searchResultDetail', {id: detailId}, function (res) {
+            doPoster('/validate-sync/getResultDetail', {id: detailId}, function (res) {
                 if (!res.success) {
                     bootGrowl(res.message || '加载失败', 'danger');
                     return;
@@ -219,10 +260,12 @@
                 var row = res.data;
                 var content = parseContent(row.content);
                 if (!content) {
-                    bootGrowl('无法解析校验结果', 'warning');
+                    bootGrowl('无差异数据！', 'warning');
                     return;
                 }
                 var type = row.type || '';
+                currentDiffDetailId = String(row.id || detailId);
+                currentDiffType = String(type);
                 var data = content.data || [];
                 var tableNameOuter = row.sourceTableName || (content.tableName || '-');
                 var src = row.sourceTotal != null ? row.sourceTotal : (content.sourceTotal != null ? content.sourceTotal : 0);
@@ -240,17 +283,20 @@
                     $('#diffSummary').hide();
                 }
 
-                var headHtml = '<tr><th>源表名称</th><th>类型</th><th>主键/标识</th><th>异常</th></tr>';
+                var isRowDataType = type === 'rowData';
+                var headHtml = '<tr><th style="width:170px;">源表名称</th><th style="width:120px;">类型</th><th style="width:220px;">主键/标识</th><th>异常</th></tr>';
                 var bodyHtml = '';
                 data.forEach(function (d) {
-
-                    var msgBadge = '<span class="badge badge-error mr-2">' + d.msg + '</span>';
+                    var safeMsg = escapeHtml(d.msg || '-');
+                    var msgHtml = '<div class="diff-msg-cell">' + safeMsg + '</div>';
+                    var sourceTableHtml = '<div class="diff-source-table-cell">' + escapeHtml(tableNameOuter) + '</div>';
                     var typeText = d.type || d.objType || '-';
+                    var fixed = isDiffItemFixed(d);
                     bodyHtml += '<tr>' +
-                        '<td>' + escapeHtml(tableNameOuter) + '</td>' +
+                        '<td>' + sourceTableHtml + '</td>' +
                         '<td>' + escapeHtml(typeText) + '</td>' +
-                        '<td>' + escapeHtml(d.key || '-') + '</td>' +
-                        '<td>' + msgBadge + '</td>' +
+                        '<td>' + escapeHtml(d.key || '-') + (fixed ? ' <span class="badge badge-success">已订正</span>' : '') + '</td>' +
+                        '<td style="white-space:normal; word-break:break-word; overflow-wrap:anywhere;">' + msgHtml + '</td>' +
                         '</tr>';
                 });
                 if (data.length === 0) {
@@ -258,9 +304,37 @@
                 }
                 $('#diffTableHead').html(headHtml);
                 $('#diffTableBody').html(bodyHtml);
+                if (isRowDataType) {
+                    $('#oneClickCorrectBtn').show();
+                } else {
+                    $('#oneClickCorrectBtn').hide();
+                }
                 $('#diffDetailOverlay').show();
             });
         };
+
+        /**
+         * 一键订正：仅提交当前任务详情 ID，后端对该明细下全部未订正项落库标记。
+         */
+        $('#oneClickCorrectBtn').click(function () {
+            if (currentDiffType !== 'rowData') {
+                bootGrowl('仅行数据校验支持一键订正', 'warning');
+                return;
+            }
+            if (!currentDiffDetailId) {
+                bootGrowl('缺少明细ID，无法订正', 'danger');
+                return;
+            }
+            doPoster('/validate-sync/correctResultDetail', { id: currentDiffDetailId }, function (res) {
+                if (!res.success) {
+                    bootGrowl(res.message || '订正失败', 'danger');
+                    return;
+                }
+                bootGrowl('订正成功', 'success');
+                window.showDiffDetail(currentDiffDetailId);
+                resultPagination.doSearch({taskId: currentTaskId});
+            });
+        });
 
         $(document).on('click', '.diff-detail-btn', function () {
             var id = $(this).data('detail-id');
@@ -287,11 +361,12 @@
                     '<td>' + getSourceTargetCounts(row) + '</td>' +
                     '<td>' + getDiffTotal(row) + '</td>' +
                     '<td>' + getCorrectedTotal(row) + '</td>' +
-                    '<td>' + formatDate(row.createTime || '') + '</td>' +
+                    '<td>' + formatDate(row.updateTime || '') + '</td>' +
                     '<td><button type="button" class="table-action-btn view diff-detail-btn" title="查看详情" data-detail-id="' + String(detailId).replace(/"/g, '') + '"><i class="fa fa-eye"></i></button></td>' +
                     '</tr>';
             },
-            emptyHtml: '<td colspan="9" class="text-center"><i class="fa fa-file-text-o empty-icon"></i><p class="empty-text">暂无校验结果</p><p class="empty-description">请先执行校验任务</p></td>'
+            emptyHtml: '<td colspan="9" class="text-center"><i class="fa fa-file-text-o empty-icon"></i><p class="empty-text">暂无校验结果</p><p class="empty-description">请先执行校验任务</p></td>',
+            customPageSize: true
         });
     });
 </script>

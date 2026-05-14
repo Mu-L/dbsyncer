@@ -189,7 +189,6 @@ public class MappingChecker extends AbstractChecker {
         List<TableGroup> groupAll = profileComponent.getTableGroupAll(mapping.getId());
         if (!CollectionUtils.isEmpty(groupAll)) {
             sortTableGroup(groupAll, params);
-
             // 合并配置
             for (TableGroup g : groupAll) {
                 tableGroupChecker.mergeConfig(mapping, g);

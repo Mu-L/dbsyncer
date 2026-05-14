@@ -3,6 +3,7 @@
  */
 package org.dbsyncer.connector.mysql.storage;
 
+import org.apache.commons.io.IOUtils;
 import org.dbsyncer.common.model.Paging;
 import org.dbsyncer.common.util.CollectionUtils;
 import org.dbsyncer.common.util.StringUtil;
@@ -25,9 +26,6 @@ import org.dbsyncer.sdk.filter.Query;
 import org.dbsyncer.sdk.model.Field;
 import org.dbsyncer.sdk.storage.AbstractStorageService;
 import org.dbsyncer.sdk.util.DatabaseUtil;
-
-import org.apache.commons.io.IOUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -38,12 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -259,41 +252,33 @@ public class MySQLStorageService extends AbstractStorageService {
      * 可自定义 select 字段查询结果
      */
     private String buildSelectFromSql(Query query, Executor executor) {
-        if (!query.hasSelectProjection()) {
+        if (!query.hasSelectField()) {
             return executor.getQuery();
         }
-        Set<String> include = null;
-        if (query.hasIncludeSelectLabels()) {
-            include = new HashSet<>(query.getIncludeSelectLabels());
-        }
-        Set<String> exclude = null;
-        if (include == null && !query.getExcludeSelectLabels().isEmpty()) {
-            exclude = new HashSet<>(query.getExcludeSelectLabels());
-        }
+        Set<String> includeLabels = query.getSelectFlied();
+
         Database database = connector;
-        List<String> fs = new ArrayList<>();
-        for (Field f : executor.getFields()) {
-            String label = f.getLabelName();
-            if (include != null) {
-                if (!include.contains(label)) {
-                    continue;
-                }
-            } else if (exclude != null && exclude.contains(label)) {
+        List<String> selectedFields = new ArrayList<>();
+        for (Field field : executor.getFields()) {
+            String label = field.getLabelName();
+
+            if (!CollectionUtils.isEmpty(includeLabels) && !includeLabels.contains(label)) {
                 continue;
             }
+            // 自定义查询字段
             if (StringUtil.isNotBlank(label)) {
-                fs.add(database.buildWithQuotation(f.getName()) + " AS " + label);
-                continue;
+                selectedFields.add(database.buildWithQuotation(field.getName()) + " AS " + label);
+            } else if (!database.buildCustom(selectedFields, field)) {
+                selectedFields.add(database.buildWithQuotation(field.getName()));
             }
-            if (database.buildCustom(fs, f)) {
-                continue;
-            }
-            fs.add(database.buildWithQuotation(f.getName()));
         }
-        if (fs.isEmpty()) {
+        if (selectedFields.isEmpty()) {
             return executor.getQuery();
         }
-        return String.format("SELECT %s FROM %s", StringUtil.join(fs, StringUtil.COMMA), database.buildWithQuotation(executor.getTable()));
+        // 拼接最终SQL
+        return String.format("SELECT %s FROM %s",
+                StringUtil.join(selectedFields, StringUtil.COMMA),
+                database.buildWithQuotation(executor.getTable()));
     }
 
     private void buildCustomOrderBy(Query query, StringBuilder sql) {
@@ -423,8 +408,7 @@ public class MySQLStorageService extends AbstractStorageService {
         List<Field> dataFields = builder.getFields();
 
         // 任务
-        builder.build(ConfigConstant.CONFIG_MODEL_ID,ConfigConstant.CONFIG_MODEL_NAME,ConfigConstant.TASK_STATUS,ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.CONFIG_MODEL_JSON, ConfigConstant.CONFIG_MODEL_CREATE_TIME, ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
-
+        builder.build(ConfigConstant.CONFIG_MODEL_ID, ConfigConstant.CONFIG_MODEL_NAME, ConfigConstant.TASK_STATUS, ConfigConstant.CONFIG_MODEL_TYPE, ConfigConstant.CONFIG_MODEL_JSON, ConfigConstant.CONFIG_MODEL_CREATE_TIME, ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
         List<Field> taskFields = builder.getFields();
 
         // 数据校验明细（列顺序与 dbsyncer_mysql_task_validata_sync_detail.sql 一致）
@@ -544,14 +528,14 @@ public class MySQLStorageService extends AbstractStorageService {
 
         public FieldBuilder() {
             fieldMap = Stream.of(new Field(ConfigConstant.CONFIG_MODEL_ID, "VARCHAR", Types.VARCHAR, true), new Field(ConfigConstant.CONFIG_MODEL_NAME, "VARCHAR", Types.VARCHAR), new Field(
-                            ConfigConstant.CONFIG_MODEL_TYPE, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.CONFIG_MODEL_CREATE_TIME, "BIGINT", Types.BIGINT), new Field(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, "BIGINT",
-                            Types.BIGINT), new Field(ConfigConstant.CONFIG_MODEL_JSON, "LONGVARCHAR", Types.LONGVARCHAR), new Field(ConfigConstant.DATA_SUCCESS, "INTEGER",
-                            Types.INTEGER), new Field(ConfigConstant.DATA_TABLE_GROUP_ID, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_TARGET_TABLE_NAME, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.DATA_EVENT, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_ERROR, "LONGVARCHAR",
-                            Types.LONGVARCHAR), new Field(ConfigConstant.BINLOG_DATA, "VARBINARY", Types.BLOB), new Field(ConfigConstant.TASK_ID, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.TASK_STATUS, "INTEGER", Types.INTEGER), new Field(ConfigConstant.TASK_SOURCE_TABLE_NAME, "VARCHAR",
-                            Types.VARCHAR), new Field(ConfigConstant.TASK_SOURCE_TOTAL, "BIGINT", Types.BIGINT), new Field(ConfigConstant.TASK_TARGET_TOTAL, "BIGINT", Types.BIGINT),
+                                    ConfigConstant.CONFIG_MODEL_TYPE, "VARCHAR",
+                                    Types.VARCHAR), new Field(ConfigConstant.CONFIG_MODEL_CREATE_TIME, "BIGINT", Types.BIGINT), new Field(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, "BIGINT",
+                                    Types.BIGINT), new Field(ConfigConstant.CONFIG_MODEL_JSON, "LONGVARCHAR", Types.LONGVARCHAR), new Field(ConfigConstant.DATA_SUCCESS, "INTEGER",
+                                    Types.INTEGER), new Field(ConfigConstant.DATA_TABLE_GROUP_ID, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_TARGET_TABLE_NAME, "VARCHAR",
+                                    Types.VARCHAR), new Field(ConfigConstant.DATA_EVENT, "VARCHAR", Types.VARCHAR), new Field(ConfigConstant.DATA_ERROR, "LONGVARCHAR",
+                                    Types.LONGVARCHAR), new Field(ConfigConstant.BINLOG_DATA, "VARBINARY", Types.BLOB), new Field(ConfigConstant.TASK_ID, "VARCHAR",
+                                    Types.VARCHAR), new Field(ConfigConstant.TASK_STATUS, "INTEGER", Types.INTEGER), new Field(ConfigConstant.TASK_SOURCE_TABLE_NAME, "VARCHAR",
+                                    Types.VARCHAR), new Field(ConfigConstant.TASK_SOURCE_TOTAL, "BIGINT", Types.BIGINT), new Field(ConfigConstant.TASK_TARGET_TOTAL, "BIGINT", Types.BIGINT),
                             new Field(ConfigConstant.TASK_DIFF_TOTAL, "BIGINT", Types.BIGINT), new Field(ConfigConstant.TASK_FIXED_TOTAL, "BIGINT", Types.BIGINT),
                             new Field(ConfigConstant.TASK_CONTENT, "LONGVARCHAR", Types.LONGVARCHAR))
                     .peek(field -> {

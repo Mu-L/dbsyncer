@@ -3,7 +3,6 @@
  */
 package org.dbsyncer.biz.impl;
 
-import org.dbsyncer.biz.RepeatedTableGroupException;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.ValidateSyncService;
 import org.dbsyncer.biz.checker.impl.mapping.MappingChecker;
@@ -22,35 +21,31 @@ import org.dbsyncer.manager.impl.PreloadTemplate;
 import org.dbsyncer.parser.LogService;
 import org.dbsyncer.parser.LogType;
 import org.dbsyncer.parser.ProfileComponent;
-import org.dbsyncer.parser.model.ConfigModel;
 import org.dbsyncer.parser.model.Connector;
 import org.dbsyncer.parser.model.Mapping;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.parser.util.ConnectorInstanceUtil;
 import org.dbsyncer.parser.util.ConnectorServiceContextUtil;
 import org.dbsyncer.parser.util.PickerUtil;
-import org.dbsyncer.sdk.SdkException;
 import org.dbsyncer.sdk.connector.ConnectorInstance;
 import org.dbsyncer.sdk.connector.DefaultConnectorServiceContext;
 import org.dbsyncer.sdk.constant.ConfigConstant;
+import org.dbsyncer.sdk.enums.FilterEnum;
 import org.dbsyncer.sdk.enums.SortEnum;
 import org.dbsyncer.sdk.enums.StorageEnum;
 import org.dbsyncer.sdk.enums.TableTypeEnum;
 import org.dbsyncer.sdk.filter.Query;
-import org.dbsyncer.sdk.model.Field;
-import org.dbsyncer.sdk.model.Filter;
-import org.dbsyncer.sdk.model.Table;
-import org.dbsyncer.sdk.model.ValidateSyncTask;
+import org.dbsyncer.sdk.model.*;
 import org.dbsyncer.sdk.spi.TaskService;
 import org.dbsyncer.sdk.storage.StorageService;
 import org.dbsyncer.storage.impl.SnowflakeIdWorker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -58,8 +53,6 @@ import java.util.stream.Stream;
 
 @Service
 public class ValidateSyncServiceImpl implements ValidateSyncService {
-
-    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
     private SnowflakeIdWorker snowflakeIdWorker;
@@ -167,10 +160,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         return JsonUtil.jsonToObj(JsonUtil.objToJson(tableGroup), TableGroup.class);
     }
 
-
     /**
      * 匹配相似表
-     * @param validateSyncTask
+     *
      */
     private void matchSimilarTableGroups(ValidateSyncTask validateSyncTask) {
         List<Table> sourceTables = validateSyncTask.getSourceTable();
@@ -214,6 +206,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
             throw new IllegalArgumentException("Task not found");
         }
         checkTask(task, params);
+        resetTaskSnapshot(task);
         List<TableGroup> groupAll = profileComponent.getTableGroupAll(task.getId());
         if (!CollectionUtils.isEmpty(groupAll)) {
             mappingChecker.sortTableGroup(groupAll, params);
@@ -236,6 +229,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         newTask.setStatus(CommonTaskStatusEnum.READY.getCode());
         newTask.setType(CommonTaskTypeEnum.VALIDATE_SYNC.name());
         newTask.setUpdateTime(System.currentTimeMillis());
+        resetTaskSnapshot(newTask);
         String newId = taskService.add(newTask);
         preloadTemplate.reConnect(newTask);
         return newId;
@@ -254,6 +248,8 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public String start(String id) {
+        List<TableGroup> tableGroupList = profileComponent.getSortedTableGroupAll(id);
+        Assert.isTrue(!CollectionUtils.isEmpty(tableGroupList), "任务未配置表映射，无法启动");
         taskService.start(id);
         return "启动成功";
     }
@@ -266,7 +262,7 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
 
     @Override
     public Paging<ValidateSyncTaskVO> search(Map<String, String> params) {
-        Paging search = taskService.search(params);
+        Paging search = taskService.search(params, CommonTaskTypeEnum.VALIDATE_SYNC);
         Collection data = search.getData();
         if (CollectionUtils.isEmpty(data)) {
             return search;
@@ -277,6 +273,10 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
                 ValidateSyncTask t = (ValidateSyncTask) task;
                 ValidateSyncTaskVO vo = convertTask2Vo(t);
                 if (vo != null) {
+                    long errorCount = countTaskDetail(t.getId());
+                    vo.setErrorCount(errorCount);
+                    List<TableGroup> tableGroupList = profileComponent.getSortedTableGroupAll(t.getId());
+                    vo.setProgress(calculateProgressPercent(t, tableGroupList.size()));
                     list.add(vo);
                 }
             }
@@ -298,13 +298,82 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
     }
 
     @Override
+    public Paging<Table> searchTables(Map<String, String> params) {
+        String id = params.get(ConfigConstant.CONFIG_MODEL_ID);
+        String type = params.get(ConfigConstant.CONFIG_MODEL_TYPE);
+        String searchKey = params.get("searchKey");
+        String tableNames = params.get("tableNames");
+
+        int pageNum = NumberUtil.toInt(params.get("pageNum"), 1);
+        int pageSize = Math.max(10, Math.min(200, NumberUtil.toInt(params.get("pageSize"), 50)));
+
+        // 是否过滤已配置的表（exclude=1 表示不过滤）
+        boolean excludeMapped = NumberUtil.toInt(params.get("exclude"), 0) != 1;
+
+        ValidateSyncTask task = taskService.get(id);
+        Assert.notNull(task, "task not found.");
+
+        boolean isSource = !"target".equals(type);
+        List<Table> tables = isSource ? task.getSourceTable() : task.getTargetTable();
+        tables = CollectionUtils.isEmpty(tables) ? Collections.emptyList() : tables;
+
+        // 已映射/已配置的表名
+        Set<String> mappedTableNames;
+        if (excludeMapped) {
+            mappedTableNames = tableGroupService.getTableGroupAll(id).stream()
+                    .map(g -> isSource ? g.getSourceTable() : g.getTargetTable())
+                    .filter(Objects::nonNull)
+                    .map(Table::getName)
+                    .filter(StringUtil::isNotBlank)
+                    .map(n -> n.toUpperCase(Locale.ROOT))
+                    .collect(Collectors.toSet());
+        } else {
+            mappedTableNames = Collections.emptySet();
+        }
+
+        // 精准匹配（tableNames: a|b|c）
+        Set<String> exactNames = new HashSet<>();
+        if (StringUtil.isNotBlank(tableNames)) {
+            String[] nameArray = StringUtil.split(tableNames, "\\|");
+            if (nameArray != null) {
+                Arrays.stream(nameArray)
+                        .filter(StringUtil::isNotBlank)
+                        .map(n -> n.toUpperCase(Locale.ROOT))
+                        .forEach(exactNames::add);
+            }
+        }
+
+        String key = StringUtil.trimToEmpty(searchKey).toUpperCase(Locale.ROOT);
+
+        List<Table> filtered = tables.stream()
+                .filter(Objects::nonNull)
+                .filter(t -> StringUtil.isNotBlank(t.getName()))
+                .filter(t -> mappedTableNames.isEmpty() || !mappedTableNames.contains(t.getName().toUpperCase(Locale.ROOT)))
+                .filter(t -> exactNames.isEmpty() || exactNames.contains(t.getName().toUpperCase(Locale.ROOT)))
+                .filter(t -> key.isEmpty() || t.getName().toUpperCase(Locale.ROOT).contains(key))
+                .sorted(Comparator.comparing(Table::getName))
+                .collect(Collectors.toList());
+
+        Paging<Table> paging = new Paging<>(pageNum, pageSize);
+        paging.setTotal(filtered.size());
+        int offset = (pageNum - 1) * pageSize;
+        if (offset >= 0 && offset < filtered.size()) {
+            paging.setData(filtered.stream()
+                    .skip(offset)
+                    .limit(pageSize)
+                    .collect(Collectors.toList()));
+        }
+        return paging;
+    }
+
+    @Override
     public Object result(String id) {
-        return taskService.result(id);
+        return taskService.get(id);
     }
 
     @Override
     public List<ValidateSyncTaskVO> getAll() {
-        return taskService.getTaskAll().stream()
+        return taskService.getTaskAll(CommonTaskTypeEnum.VALIDATE_SYNC).stream()
                 .map(this::convertTask2Vo)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
@@ -316,9 +385,12 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         Assert.hasText(taskId, "taskId is required.");
         Query query = new Query(NumberUtil.toInt(params.get("pageNum"), 1), NumberUtil.toInt(params.get("pageSize"), 10));
         query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
-        query.addOrderBy(ConfigConstant.CONFIG_MODEL_UPDATE_TIME, SortEnum.DESC);
         query.addFilter(ConfigConstant.TASK_ID, taskId);
-        query.addExcludeSelectLabel(ConfigConstant.TASK_CONTENT);
+
+        Set<String> selectFiled = getTaskDetailSelect();
+
+        query.setSelectFlied(selectFiled);
+        query.addOrderBy(ConfigConstant.TASK_DIFF_TOTAL, SortEnum.DESC);
         return storageService.query(query);
     }
 
@@ -336,9 +408,9 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
     }
 
     @Override
-    public void clearResult(String taskId) {
-        Assert.hasText(taskId, "taskId is required.");
-        taskService.clearResult(taskId);
+    public void correctResultDetail(String id) {
+        Assert.hasText(id, "id is required.");
+        taskService.correct(id);
     }
 
     @Override
@@ -444,6 +516,23 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         return tables;
     }
 
+    /**
+     * 获取有异常的数据
+     *
+     * @param taskId
+     * @return
+     */
+    private long countTaskDetail(String taskId) {
+        Query query = new Query(1, 1);
+        query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
+        query.addFilter(ConfigConstant.TASK_ID, taskId);
+        query.addFilter(ConfigConstant.TASK_DIFF_TOTAL, FilterEnum.GT, 0);
+        query.setType(StorageEnum.VALIDATE_SYNC_DETAIL);
+        query.setQueryTotal(true);
+        Paging paging = storageService.query(query);
+        return paging.getTotal();
+    }
+
     private void resetTableGroupAllIndex(String taskId) {
         synchronized (LOCK) {
             List<TableGroup> list = profileComponent.getSortedTableGroupAll(taskId);
@@ -458,13 +547,14 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         }
     }
 
-    private ValidateSyncTaskVO convertTask2Vo(ValidateSyncTask task) {
+    private ValidateSyncTaskVO convertTask2Vo(CommonTask task) {
         if (task == null) {
             return null;
         }
 
-        Connector s = profileComponent.getConnector(task.getSourceConnectorId());
-        Connector t = profileComponent.getConnector(task.getTargetConnectorId());
+        ValidateSyncTask validateSyncTask = (ValidateSyncTask) task;
+        Connector s = profileComponent.getConnector(validateSyncTask.getSourceConnectorId());
+        Connector t = profileComponent.getConnector(validateSyncTask.getTargetConnectorId());
         ValidateSyncTaskVO vo = new ValidateSyncTaskVO(s, t);
         BeanUtils.copyProperties(task, vo);
         return vo;
@@ -528,10 +618,70 @@ public class ValidateSyncServiceImpl implements ValidateSyncService {
         task.setSourceColumn(sourceColumn);
     }
 
+    /**
+     * 进度百分比计算：
+     * completed = (最小索引 - 1) + (快照中 status=1 的个数)
+     * progress = completed / 表总数 * 100
+     *
+     * @param task      校验任务
+     * @param totalSize 表总数
+     * @return 百分比（0~100）
+     */
+    private BigDecimal calculateProgressPercent(ValidateSyncTask task, int totalSize) {
+
+        if (task.getProcessed() == null) {
+            return null;
+        }
+        if (task.getProcessed() != null && task.getProcessed() == 1) {
+            return new BigDecimal("100.00");
+        }
+        if (task.getTableSnapshots().isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        int minIndex = task.getTableSnapshots().keySet().stream()
+                .min(Comparator.naturalOrder())  // 自然排序，取最小
+                .orElse(0);
+
+        long doneCount = task.getTableSnapshots().values().stream()
+                .filter(snapshot -> snapshot != null && snapshot.getStatus() == 1)
+                .count();
+        long completed = Math.max(0, minIndex - 1L) + doneCount;
+        if (completed > totalSize) {
+            completed = totalSize;
+        }
+        // 公式：completed * 100 / totalSize 保留2位小数
+        return BigDecimal.valueOf(completed)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(totalSize), 2, RoundingMode.HALF_UP);
+    }
+
+    private void resetTaskSnapshot(ValidateSyncTask task) {
+        if (task == null) {
+            return;
+        }
+        task.setProcessed(0);
+        task.getTableSnapshots().clear();
+    }
 
     protected void assertRunning(String taskId) {
         synchronized (LOCK) {
             Assert.isTrue(!taskService.isRunning(taskId), "任务正在执行, 请先停止.");
         }
+    }
+
+    private static Set<String> getTaskDetailSelect() {
+        Set<String> selectFiled = new HashSet<>();
+        selectFiled.add(ConfigConstant.TASK_ID);
+        selectFiled.add(ConfigConstant.CONFIG_MODEL_ID);
+        selectFiled.add(ConfigConstant.TASK_SOURCE_TABLE_NAME);
+        selectFiled.add(ConfigConstant.DATA_TARGET_TABLE_NAME);
+        selectFiled.add(ConfigConstant.TASK_SOURCE_TOTAL);
+        selectFiled.add(ConfigConstant.TASK_TARGET_TOTAL);
+        selectFiled.add(ConfigConstant.TASK_DIFF_TOTAL);
+        selectFiled.add(ConfigConstant.TASK_FIXED_TOTAL);
+        selectFiled.add(ConfigConstant.CONFIG_MODEL_TYPE);
+        selectFiled.add(ConfigConstant.CONFIG_MODEL_UPDATE_TIME);
+        selectFiled.add(ConfigConstant.CONFIG_MODEL_CREATE_TIME);
+        return selectFiled;
     }
 }

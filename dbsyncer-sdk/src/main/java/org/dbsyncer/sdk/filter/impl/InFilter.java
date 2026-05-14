@@ -14,7 +14,7 @@ import java.util.List;
  * 运行时 JDBC {@code IN} 列表：生成 {@code col IN (?,?,?)}，并按顺序绑定 {@link #getBindValues()}。
  * @author wuji
  */
-public class ListFilter extends AbstractFilter {
+public class InFilter extends AbstractFilter {
 
     private final List<Object> bindValues;
 
@@ -22,7 +22,7 @@ public class ListFilter extends AbstractFilter {
      * @param columnName 列名（与表字段一致；连接器内会做下划线/引号处理）
      * @param bindValues 与 {@code IN} 中 {@code ?} 一一对应的绑定值（可为 null 表示 SQL NULL）
      */
-    public ListFilter(String columnName, List<Object> bindValues) {
+    public InFilter(String columnName, List<Object> bindValues) {
         setName(columnName);
         this.bindValues = bindValues == null ? Collections.emptyList() : new ArrayList<>(bindValues);
     }

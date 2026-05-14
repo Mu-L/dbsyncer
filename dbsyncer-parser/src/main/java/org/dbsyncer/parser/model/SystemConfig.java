@@ -7,7 +7,7 @@ import org.dbsyncer.common.model.ApiKeyConfig;
 import org.dbsyncer.common.model.IpWhitelistConfig;
 import org.dbsyncer.common.model.JwtSecretConfig;
 import org.dbsyncer.common.model.RsaConfig;
-import org.dbsyncer.plugin.model.NoticeConfig;
+import org.dbsyncer.sdk.model.NoticeConfig;
 import org.dbsyncer.sdk.constant.ConfigConstant;
 
 /**

@@ -3,11 +3,12 @@
  */
 package org.dbsyncer.parser;
 
+import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.model.Result;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.flush.impl.TableGroupBufferActuator;
 import org.dbsyncer.sdk.model.CommonTask;
-import org.dbsyncer.sdk.model.ValidateSyncTask;
 import org.dbsyncer.sdk.spi.ServiceFactory;
 import org.dbsyncer.sdk.spi.TableGroupBufferActuatorService;
 import org.dbsyncer.sdk.spi.TaskService;
@@ -49,7 +50,6 @@ public class ParserSupportConfiguration {
     public TaskService taskService() {
         TaskService taskService = serviceFactory.get(TaskService.class);
         if (taskService != null) {
-            // 作为 @Bean 返回，Spring 会自动完成 @Resource 注入与 @PostConstruct 回调
             return taskService;
         }
         return new TaskService<CommonTask>() {
@@ -85,7 +85,7 @@ public class ParserSupportConfiguration {
             }
 
             @Override
-            public Paging search(Map<String, String> param) {
+            public Paging search(Map<String, String> param, CommonTaskTypeEnum commonTaskTypeEnum) {
                 return null;
             }
 
@@ -95,7 +95,7 @@ public class ParserSupportConfiguration {
             }
 
             @Override
-            public List<ValidateSyncTask> getTaskAll() {
+            public List<CommonTask> getTaskAll(CommonTaskTypeEnum commonTaskTypeEnum) {
                 return Collections.emptyList();
             }
 
@@ -105,9 +105,10 @@ public class ParserSupportConfiguration {
             }
 
             @Override
-            public void clearResult(String taskId) {
-
+            public Result correct(String taskDetailId) {
+                return null;
             }
+
         };
     }
 

@@ -7,19 +7,13 @@ import org.dbsyncer.biz.ConnectorService;
 import org.dbsyncer.biz.TableGroupService;
 import org.dbsyncer.biz.ValidateSyncService;
 import org.dbsyncer.biz.vo.RestResult;
-import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.parser.model.TableGroup;
 import org.dbsyncer.web.controller.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -201,6 +195,21 @@ public class ValidateSyncController extends BaseController {
         }
     }
 
+    /**
+     * 分页搜索校验任务表（用于下拉框远程搜索）
+     */
+    @PostMapping("/searchTables")
+    @ResponseBody
+    public RestResult searchTables(HttpServletRequest request) {
+        try {
+            Map<String, String> params = getParams(request);
+            return RestResult.restSuccess(validateSyncService.searchTables(params));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
     @PostMapping(value = "/refreshFields")
     @ResponseBody
     public RestResult refreshFields(@RequestParam(value = "id") String id) {
@@ -264,21 +273,6 @@ public class ValidateSyncController extends BaseController {
     }
 
     /**
-     * 清空指定任务的校验结果
-     */
-    @PostMapping("/clearResult")
-    @ResponseBody
-    public RestResult clearResult(@RequestParam(value = "taskId") String taskId) {
-        try {
-            validateSyncService.clearResult(taskId);
-            return RestResult.restSuccess("清空成功");
-        } catch (Exception e) {
-            logger.error(e.getLocalizedMessage(), e);
-            return RestResult.restFail(e.getMessage());
-        }
-    }
-
-    /**
      * 分页查询校验结果明细
      */
     @PostMapping("/searchResult")
@@ -296,15 +290,30 @@ public class ValidateSyncController extends BaseController {
     /**
      * 按明细 ID 查询单条校验结果（含完整 CONTENT），供详情弹窗使用。
      */
-    @PostMapping("/searchResultDetail")
+    @PostMapping("/getResultDetail")
     @ResponseBody
-    public RestResult searchResultDetail(@RequestParam("id") String id) {
+    public RestResult getResultDetail(@RequestParam("id") String id) {
         try {
             Object detail = validateSyncService.getValidateResultDetail(id);
             if (detail == null) {
                 return RestResult.restFail("记录不存在", 404);
             }
             return RestResult.restSuccess(detail);
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
+    /**
+     * 一键订正差异明细（
+     */
+    @PostMapping("/correctResultDetail")
+    @ResponseBody
+    public RestResult correctResultDetail(@RequestParam("id") String id) {
+        try {
+            validateSyncService.correctResultDetail(id);
+            return RestResult.restSuccess(null);
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage(), e);
             return RestResult.restFail(e.getMessage());

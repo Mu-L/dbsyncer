@@ -133,13 +133,11 @@
         const taskId = window.taskId;
         // 返回列表按钮
         $('#backToListBtn').click(function() {
-            console.log('[任务执行结果] 返回任务列表');
             doLoader('/task');
         });
 
         // 刷新按钮
         $('#refreshResultBtn').click(function() {
-            console.log('[任务执行结果] 刷新结果列表');
             if (window.resultPagination) {
                 window.resultPagination.doSearch(window.resultPagination.searchParams || {taskId: window.taskId}, window.resultPagination.currentPage);
             }

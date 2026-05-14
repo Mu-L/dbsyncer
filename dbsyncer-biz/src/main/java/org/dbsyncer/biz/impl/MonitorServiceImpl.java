@@ -113,7 +113,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         metricMap.putIfAbsent(BufferActuatorMetricEnum.STORAGE.getCode(), new ValueMetricDetailFormatter());
         metricMap.putIfAbsent(MetricEnum.THREADS_LIVE.getCode(), new DoubleRoundMetricDetailFormatter());
         metricMap.putIfAbsent(MetricEnum.THREADS_PEAK.getCode(), new DoubleRoundMetricDetailFormatter());
-        metricMap.putIfAbsent(MetricEnum.SYSTEM_ENV.getCode(), vo-> {
+        metricMap.putIfAbsent(MetricEnum.SYSTEM_ENV.getCode(), vo -> {
             // 操作系统
             String osName = System.getProperty("os.name");
             // 架构
@@ -198,7 +198,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         query.setType(StorageEnum.LOG);
         Paging paging = storageService.query(query);
         List<Map> data = (List<Map>) paging.getData();
-        paging.setData(data.stream().map(m->convert2Vo(m, LogVO.class)).collect(Collectors.toList()));
+        paging.setData(data.stream().map(m -> convert2Vo(m, LogVO.class)).collect(Collectors.toList()));
         return paging;
     }
 
@@ -253,7 +253,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         }
 
         MappingErrorContent content = new MappingErrorContent();
-        metaAll.forEach(meta-> {
+        metaAll.forEach(meta -> {
             // 统计运行中和失败数
             if (meta.getFail().get() > 0) {
                 writeMappingReport(meta, content);
@@ -264,13 +264,12 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
             content.setTitle("同步失败");
             sendNotifyMessage(content);
         }
-
         // 采集连接离线状态
         collectConnectorOffline();
     }
 
     private void collectConnectorOffline() {
-        // 防止首次启动，状态还未刷新
+        // 防止首次启动，连接器状态还未刷新，默认还是离线状态，防止误判
         if (LocalDateTime.now().minusMinutes(1).isAfter(delayTime)) {
             // 采集连接离线状态
             ConnectorOfflineContent content = new ConnectorOfflineContent();
@@ -314,7 +313,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
         }
         Query query = new Query(pageNum, pageSize);
         Map<String, FieldResolver> fieldResolvers = new ConcurrentHashMap<>();
-        fieldResolvers.put(ConfigConstant.BINLOG_DATA, (FieldResolver<IndexableField>) field->field.binaryValue().bytes);
+        fieldResolvers.put(ConfigConstant.BINLOG_DATA, (FieldResolver<IndexableField>) field -> field.binaryValue().bytes);
         query.setFieldResolverMap(fieldResolvers);
 
         // 查询异常信息
@@ -339,7 +338,7 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
             long expiredTime = Timestamp.valueOf(LocalDateTime.now().minusDays(expireDataDays)).getTime();
             LongFilter expiredFilter = new LongFilter(ConfigConstant.CONFIG_MODEL_CREATE_TIME, FilterEnum.LT, expiredTime);
             query.setBooleanFilter(new BooleanFilter().add(expiredFilter));
-            metaAll.forEach(metaVo-> {
+            metaAll.forEach(metaVo -> {
                 query.setMetaId(metaVo.getId());
                 storageService.delete(query);
             });
@@ -380,13 +379,13 @@ public class MonitorServiceImpl extends BaseServiceImpl implements MonitorServic
     }
 
     private List<MetricResponseVO> metricResponseToVo(Collection<MetricResponse> metrics) {
-        return metrics.stream().map(metric-> {
+        return metrics.stream().map(metric -> {
             MetricResponseVO vo = new MetricResponseVO();
             vo.setCode(metric.getCode());
             vo.setGroup(metric.getGroup());
             vo.setMetricName(metric.getMetricName());
             vo.setMeasurements(metric.getMeasurements());
-            metricMap.computeIfPresent(vo.getCode(), (k, mdf)-> {
+            metricMap.computeIfPresent(vo.getCode(), (k, mdf) -> {
                 mdf.format(vo);
                 return mdf;
             });

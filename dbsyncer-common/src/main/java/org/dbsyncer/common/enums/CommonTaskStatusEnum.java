@@ -34,7 +34,7 @@ public enum CommonTaskStatusEnum {
     }
 
     public static boolean isRunning(int state) {
-        return RUNNING.getCode() == state || STOPPING.getCode() == state;
+        return RUNNING.getCode() == state;
     }
 
     public int getCode() {

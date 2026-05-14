@@ -7,6 +7,7 @@ import org.dbsyncer.common.enums.CommonTaskTriggerEnum;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ValidateSyncTask extends CommonTask {
     // 数据源连接器ID
@@ -93,6 +94,12 @@ public class ValidateSyncTask extends CommonTask {
      * 执行线程数
      */
     private int threadNum = 10;
+
+    // 任务状态 0 处理中 1处理结束
+    private Integer processed = 0;
+
+    //表执行快照
+    private final ConcurrentHashMap<Integer, ValidateTableSnapshot> tableSnapshots = new ConcurrentHashMap<>();
 
     public String getSourceConnectorId() {
         return sourceConnectorId;
@@ -260,5 +267,21 @@ public class ValidateSyncTask extends CommonTask {
 
     public void setEnableSchema(boolean enableSchema) {
         this.enableSchema = enableSchema;
+    }
+
+    public Integer getProcessed() {
+        return processed;
+    }
+
+    public void setProcessed(Integer processed) {
+        this.processed = processed;
+    }
+
+    public ConcurrentHashMap<Integer, ValidateTableSnapshot> getTableSnapshots() {
+        return tableSnapshots;
+    }
+
+    public void addTableSnapshots(Integer index, ValidateTableSnapshot tableSnapshots) {
+        this.tableSnapshots.put(index, tableSnapshots);
     }
 }

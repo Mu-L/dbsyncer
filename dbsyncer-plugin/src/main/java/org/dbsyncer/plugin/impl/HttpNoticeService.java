@@ -4,10 +4,10 @@
 package org.dbsyncer.plugin.impl;
 
 import org.dbsyncer.common.util.JsonUtil;
-import org.dbsyncer.plugin.AbstractNoticeService;
-import org.dbsyncer.plugin.model.HttpNoticeChannel;
-import org.dbsyncer.plugin.model.NoticeContent;
-import org.dbsyncer.plugin.model.NoticeMessage;
+import org.dbsyncer.common.model.HttpNoticeChannel;
+import org.dbsyncer.sdk.model.NoticeContent;
+import org.dbsyncer.sdk.model.NoticeMessage;
+
 
 /**
  * HTTP通知服务实现

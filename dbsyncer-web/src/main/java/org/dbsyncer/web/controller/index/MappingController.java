@@ -182,6 +182,18 @@ public class MappingController extends BaseController {
         }
     }
 
+    @PostMapping("/searchTables")
+    @ResponseBody
+    public RestResult searchTables(HttpServletRequest request) {
+        try {
+            Map<String, String> params = getParams(request);
+            return RestResult.restSuccess(mappingService.searchTables(params));
+        } catch (Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
+            return RestResult.restFail(e.getMessage());
+        }
+    }
+
     @PostMapping("/searchCustomTable")
     @ResponseBody
     public RestResult searchCustomTable(HttpServletRequest request) {

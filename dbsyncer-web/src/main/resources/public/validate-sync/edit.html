@@ -114,7 +114,9 @@
                 </div>
                 <div class="form-item">
                     <label class="form-label">表结构</label>
-                    <input type="checkbox" name="enableSchema" class="validate-sync-item" value="true" th:checked="${task?.enableSchema}" />
+                    <input type="checkbox" name="enableSchema" class="validate-sync-item" value="true"
+                           th:disabled="${#strings.equalsIgnoreCase(#strings.defaultString(task?.sourceConnector?.config?.connectorType, ''), 'elasticsearch') or #strings.equalsIgnoreCase(#strings.defaultString(task?.sourceConnector?.config?.connectorType, ''), 'sqlite') or #strings.equalsIgnoreCase(#strings.defaultString(task?.targetConnector?.config?.connectorType, ''), 'elasticsearch') or #strings.equalsIgnoreCase(#strings.defaultString(task?.targetConnector?.config?.connectorType, ''), 'sqlite')}"
+                           th:checked="${!(#strings.equalsIgnoreCase(#strings.defaultString(task?.sourceConnector?.config?.connectorType, ''), 'elasticsearch') or #strings.equalsIgnoreCase(#strings.defaultString(task?.sourceConnector?.config?.connectorType, ''), 'sqlite') or #strings.equalsIgnoreCase(#strings.defaultString(task?.targetConnector?.config?.connectorType, ''), 'elasticsearch') or #strings.equalsIgnoreCase(#strings.defaultString(task?.targetConnector?.config?.connectorType, ''), 'sqlite')) and task?.enableSchema}" />
                 </div>
 
 <!--                <div class="form-item">-->
@@ -179,6 +181,21 @@
         showTriggerConfig(trigger.getValue());
     }
 
+    /**
+     * 「行数据」与「表结构」至少勾选一个方可保存。
+     * @param {JQuery} $form 表单
+     * @returns {boolean}
+     */
+    function validateValidateSyncScope($form) {
+        var rowData = $form.find('input[name="enablerRowData"]').is(':checked');
+        var schema = $form.find('input[name="enableSchema"]').is(':checked');
+        if (!rowData && !schema) {
+            bootGrowl('请至少勾选「行数据」或「表结构」中的一项。', 'danger');
+            return false;
+        }
+        return true;
+    }
+
     $(function () {
         window.backIndexPage = function () {
             doLoader("/validate-sync/list");
@@ -194,6 +211,9 @@
         // 保存
         $("#task-submit-btn").click(function () {
             let $form = $("#validate-sync-modify-form");
+            if (!validateValidateSyncScope($form)) {
+                return;
+            }
             if (validateForm($form)) {
                 const $btn = $(this);
                 const originalText = $btn.html();

@@ -1,8 +1,7 @@
-package org.dbsyncer.parser;
+package org.dbsyncer.sdk.notice;
 
-import org.dbsyncer.plugin.model.NoticeContent;
-import org.dbsyncer.plugin.NoticeService;
-import org.dbsyncer.plugin.enums.NoticeChannelEnum;
+import org.dbsyncer.sdk.model.NoticeContent;
+import org.dbsyncer.sdk.enums.NoticeChannelEnum;
 
 public interface MessageService {
 

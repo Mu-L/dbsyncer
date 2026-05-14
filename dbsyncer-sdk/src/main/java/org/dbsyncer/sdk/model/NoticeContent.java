@@ -1,9 +1,10 @@
 /**
  * DBSyncer Copyright 2020-2026 All Rights Reserved.
  */
-package org.dbsyncer.plugin.model;
+package org.dbsyncer.sdk.model;
 
-import org.dbsyncer.plugin.enums.NoticeTypeEnum;
+
+import org.dbsyncer.sdk.enums.NoticeTypeEnum;
 
 /**
  * 通知消息

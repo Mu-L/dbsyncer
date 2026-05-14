@@ -3,9 +3,10 @@
  */
 package org.dbsyncer.sdk.spi;
 
+import org.dbsyncer.common.enums.CommonTaskTypeEnum;
 import org.dbsyncer.common.model.Paging;
+import org.dbsyncer.common.model.Result;
 import org.dbsyncer.sdk.model.CommonTask;
-import org.dbsyncer.sdk.model.ValidateSyncTask;
 
 import java.util.List;
 import java.util.Map;
@@ -45,36 +46,39 @@ public interface TaskService<T extends CommonTask> {
     void stop(String id);
 
     /**
-     * 获取任务详情
+     * 获取任务
      */
     T get(String id);
 
     /**
      * 任务列表
      */
-    Paging search(Map<String, String> param);
+    Paging search(Map<String, String> param, CommonTaskTypeEnum commonTaskTypeEnum);
 
     /**
-     * 查看任务
+     * 查看任务执行详情
      */
     Paging result(String id);
 
     /**
-     * 获取所有任务
+     * 获取所有任务 根据任务类型
+     *
      * @return
      */
-    List<ValidateSyncTask> getTaskAll();
+    List<CommonTask> getTaskAll(CommonTaskTypeEnum commonTaskTypeEnum);
+
     /**
      * 检查任务状态
+     *
      * @param taskId
      * @return
      */
     boolean isRunning(String taskId);
 
     /**
-     * 清空指定任务的校验结果明细
+     * 订正
      *
-     * @param taskId 任务ID
+     * @return
      */
-    void clearResult(String taskId);
+    Result correct(String taskDetailId);
 }
