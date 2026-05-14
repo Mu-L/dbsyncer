@@ -5,7 +5,7 @@ import org.dbsyncer.common.config.AppConfig;
 import org.dbsyncer.common.util.StringUtil;
 import org.dbsyncer.plugin.AbstractNoticeService;
 import org.dbsyncer.plugin.model.ConnectorOfflineContent;
-import org.dbsyncer.plugin.model.HttpNoticeChannel;
+import org.dbsyncer.plugin.model.MailNoticeChannel;
 import org.dbsyncer.plugin.model.MappingErrorContent;
 import org.dbsyncer.plugin.model.MappingStopContent;
 import org.dbsyncer.plugin.model.NoticeContent;
@@ -75,8 +75,8 @@ public final class MailNoticeService extends AbstractNoticeService {
 
     @Override
     public void notify(NoticeMessage notice) {
-        HttpNoticeChannel http = notice.getNoticeConfig().getHttp();
-        if (!http.isEnabled()) {
+        MailNoticeChannel mail = notice.getNoticeConfig().getMail();
+        if (!mail.isEnabled()) {
             return;
         }
         try {
